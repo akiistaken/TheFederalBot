@@ -84,7 +84,8 @@ client.on('interactionCreate', async interaction => {
                 .setRequired(true);
             const dateInput = new TextInputBuilder()
                 .setCustomId('loa_date')
-                .setLabel('Return Date')
+                .setLabel('Return Date (YYYY-MM-DD)')
+                .setPlaceholder('e.g. 2026-12-25')
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
@@ -244,6 +245,12 @@ client.on('interactionCreate', async interaction => {
             const userId = interaction.fields.getTextInputValue('loa_id');
             const userReason = interaction.fields.getTextInputValue('loa_reason');
             const userDate = interaction.fields.getTextInputValue('loa_date');
+
+            // Validate date format (YYYY-MM-DD)
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(userDate)) {
+                return interaction.reply({ content: 'Invalid date format! Please use YYYY-MM-DD (e.g. 2026-12-25) and try again.', ephemeral: true });
+            }
 
             db.get('SELECT loa_channel_id, loa_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
                 if (err || !row || !row.loa_channel_id || !row.loa_support_role_id) {
