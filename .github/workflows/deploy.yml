@@ -28,4 +28,5 @@ jobs:
             npm rebuild sqlite3 || true
             
             # Restart the bot using PM2
+            node deploy-commands.js
             pm2 restart TheFederalBot
