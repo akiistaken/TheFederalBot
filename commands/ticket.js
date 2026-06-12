@@ -23,11 +23,6 @@ module.exports = {
                     option.setName('transcript_channel')
                         .setDescription('The channel to save transcripts to')
                         .addChannelTypes(ChannelType.GuildText)
-                        .setRequired(false))
-                .addChannelOption(option => 
-                    option.setName('loa_channel')
-                        .setDescription('The channel to post LOA requests')
-                        .addChannelTypes(ChannelType.GuildText)
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
@@ -66,9 +61,8 @@ module.exports = {
             const category = interaction.options.getChannel('category');
             const supportRole = interaction.options.getRole('support_role');
             const transcriptChannel = interaction.options.getChannel('transcript_channel');
-            const loaChannel = interaction.options.getChannel('loa_channel');
 
-            const customId = `ticketsetup_${category.id}_${supportRole.id}_${transcriptChannel ? transcriptChannel.id : 'none'}_${loaChannel ? loaChannel.id : 'none'}`;
+            const customId = `ticketsetup_${category.id}_${supportRole.id}_${transcriptChannel ? transcriptChannel.id : 'none'}`;
 
             const modal = new ModalBuilder()
                 .setCustomId(customId)
@@ -79,7 +73,7 @@ module.exports = {
                 .setLabel('Panel Message')
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(true)
-                .setValue('Click a button below to open a support ticket.\n\n🚨 **Report**: Report a user or bug\n⚖ **Appeal**: Appeal a punishment\n💡 **Suggestion**: Submit a server suggestion\n✈ **Apply LOA**: Apply for Leave of Absence');
+                .setValue('Click a button below to open a support ticket.\n\n🚨 **Report**: Report a user or bug\n⚖ **Appeal**: Appeal a punishment\n💡 **Suggestion**: Submit a server suggestion');
 
             const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
             modal.addComponents(firstActionRow);

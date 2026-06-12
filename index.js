@@ -62,7 +62,41 @@ client.on('interactionCreate', async interaction => {
             }
         }
     } else if (interaction.isButton()) {
-        if (interaction.customId.startsWith('create_ticket_')) {
+        if (interaction.customId === 'create_loa_request') {
+            const modal = new ModalBuilder()
+                .setCustomId('loamodal')
+                .setTitle('Leave of Absence Request');
+
+            const nameInput = new TextInputBuilder()
+                .setCustomId('loa_name')
+                .setLabel('Name')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            const idInput = new TextInputBuilder()
+                .setCustomId('loa_id')
+                .setLabel('ID')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            const reasonInput = new TextInputBuilder()
+                .setCustomId('loa_reason')
+                .setLabel('Reason')
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(true);
+            const dateInput = new TextInputBuilder()
+                .setCustomId('loa_date')
+                .setLabel('Return Date')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(nameInput),
+                new ActionRowBuilder().addComponents(idInput),
+                new ActionRowBuilder().addComponents(reasonInput),
+                new ActionRowBuilder().addComponents(dateInput)
+            );
+
+            await interaction.showModal(modal);
+        } else if (interaction.customId.startsWith('create_ticket_')) {
             const ticketType = interaction.customId.replace('create_ticket_', '');
 
             const modal = new ModalBuilder()
@@ -83,34 +117,6 @@ client.on('interactionCreate', async interaction => {
                     .setRequired(true);
 
                 modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(explInput));
-            } else if (ticketType === 'loa') {
-                const nameInput = new TextInputBuilder()
-                    .setCustomId('ticketmodal_name')
-                    .setLabel('Name')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-                const idInput = new TextInputBuilder()
-                    .setCustomId('ticketmodal_id')
-                    .setLabel('ID')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-                const reasonInput = new TextInputBuilder()
-                    .setCustomId('ticketmodal_reason')
-                    .setLabel('Reason')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(true);
-                const dateInput = new TextInputBuilder()
-                    .setCustomId('ticketmodal_date')
-                    .setLabel('Return Date')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true);
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(nameInput),
-                    new ActionRowBuilder().addComponents(idInput),
-                    new ActionRowBuilder().addComponents(reasonInput),
-                    new ActionRowBuilder().addComponents(dateInput)
-                );
             } else {
                 const reasonInput = new TextInputBuilder()
                     .setCustomId('ticketmodal_reason')
@@ -122,6 +128,52 @@ client.on('interactionCreate', async interaction => {
             }
 
             await interaction.showModal(modal);
+        } else if (interaction.customId.startsWith('loa_approve_') || interaction.customId.startsWith('loa_deny_')) {
+            const isApprove = interaction.customId.startsWith('loa_approve_');
+            const targetUserId = interaction.customId.replace(isApprove ? 'loa_approve_' : 'loa_deny_', '');
+
+            db.get('SELECT loa_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+                if (err || !row || !row.loa_support_role_id) return interaction.reply({ content: 'LOA system error.', ephemeral: true });
+
+                const hasSupportRole = interaction.member.roles.cache.has(row.loa_support_role_id);
+                const hasAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageChannels);
+
+                if (!hasSupportRole && !hasAdmin) {
+                    return interaction.reply({ content: 'Only support staff can review LOA requests.', ephemeral: true });
+                }
+
+                const newColor = isApprove ? 'Green' : 'Red';
+                const statusText = isApprove ? 'Approved' : 'Denied';
+
+                const originalEmbed = interaction.message.embeds[0];
+                const newEmbed = EmbedBuilder.from(originalEmbed)
+                    .setColor(newColor)
+                    .setTitle(`Leave of Absence Request - ${statusText}`);
+
+                const rowComponent = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('dummy_btn')
+                            .setLabel(statusText)
+                            .setStyle(isApprove ? ButtonStyle.Success : ButtonStyle.Danger)
+                            .setDisabled(true)
+                    );
+
+                try {
+                    await interaction.update({ embeds: [newEmbed], components: [rowComponent] });
+                } catch (error) {
+                    console.error('Failed to update LOA message:', error);
+                }
+
+                try {
+                    const targetUser = await interaction.client.users.fetch(targetUserId);
+                    if (targetUser) {
+                        await targetUser.send(`Your Leave of Absence (LOA) request in **${interaction.guild.name}** has been **${statusText}**.`);
+                    }
+                } catch (error) {
+                    console.error('Failed to DM user about LOA status:', error);
+                }
+            });
         } else if (interaction.customId === 'close_ticket') {
             db.get('SELECT ticket_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
                 if (err || !row || !row.ticket_support_role_id) return interaction.reply({ content: 'Ticket system error.', ephemeral: true });
@@ -185,55 +237,54 @@ client.on('interactionCreate', async interaction => {
             });
 
             await interaction.editReply({ content: 'Here is the transcript for this ticket:', files: [attachment] });
-        } else if (interaction.customId.startsWith('loa_approve_') || interaction.customId.startsWith('loa_deny_')) {
-            const isApprove = interaction.customId.startsWith('loa_approve_');
-            const targetUserId = interaction.customId.replace(isApprove ? 'loa_approve_' : 'loa_deny_', '');
+        }
+    } else if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'loamodal') {
+            const userName = interaction.fields.getTextInputValue('loa_name');
+            const userId = interaction.fields.getTextInputValue('loa_id');
+            const userReason = interaction.fields.getTextInputValue('loa_reason');
+            const userDate = interaction.fields.getTextInputValue('loa_date');
 
-            db.get('SELECT ticket_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
-                if (err || !row || !row.ticket_support_role_id) return interaction.reply({ content: 'Ticket system error.', ephemeral: true });
-
-                const hasSupportRole = interaction.member.roles.cache.has(row.ticket_support_role_id);
-                const hasAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageChannels);
-
-                if (!hasSupportRole && !hasAdmin) {
-                    return interaction.reply({ content: 'Only support staff can review LOA requests.', ephemeral: true });
+            db.get('SELECT loa_channel_id, loa_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+                if (err || !row || !row.loa_channel_id || !row.loa_support_role_id) {
+                    return interaction.reply({ content: 'LOA system is not completely set up.', ephemeral: true });
                 }
 
-                const newColor = isApprove ? 'Green' : 'Red';
-                const statusText = isApprove ? 'Approved' : 'Denied';
+                const loaChannel = interaction.guild.channels.cache.get(row.loa_channel_id);
+                if (!loaChannel) return interaction.reply({ content: 'LOA Channel not found.', ephemeral: true });
 
-                const originalEmbed = interaction.message.embeds[0];
-                const newEmbed = EmbedBuilder.from(originalEmbed)
-                    .setColor(newColor)
-                    .setTitle(`Leave of Absence Request - ${statusText}`);
+                const embed = new EmbedBuilder()
+                    .setTitle('Leave of Absence Request')
+                    .setColor('Purple')
+                    .addFields(
+                        { name: 'Name', value: userName, inline: true },
+                        { name: 'ID', value: userId, inline: true },
+                        { name: 'Return Date', value: userDate, inline: true },
+                        { name: 'Reason', value: userReason, inline: false }
+                    )
+                    .setTimestamp();
 
                 const rowComponent = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
-                            .setCustomId('dummy_btn')
-                            .setLabel(statusText)
-                            .setStyle(isApprove ? ButtonStyle.Success : ButtonStyle.Danger)
-                            .setDisabled(true)
+                            .setCustomId(`loa_approve_${interaction.user.id}`)
+                            .setLabel('Approve')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`loa_deny_${interaction.user.id}`)
+                            .setLabel('Deny')
+                            .setStyle(ButtonStyle.Danger)
                     );
 
                 try {
-                    await interaction.update({ embeds: [newEmbed], components: [rowComponent] });
+                    await loaChannel.send({ content: `<@&${row.loa_support_role_id}> | Submitted by ${interaction.user}`, embeds: [embed], components: [rowComponent] });
+                    await interaction.reply({ content: 'Your LOA request has been submitted!', ephemeral: true });
                 } catch (error) {
-                    console.error('Failed to update LOA message:', error);
-                }
-
-                try {
-                    const targetUser = await interaction.client.users.fetch(targetUserId);
-                    if (targetUser) {
-                        await targetUser.send(`Your Leave of Absence (LOA) request in **${interaction.guild.name}** has been **${statusText}**.`);
-                    }
-                } catch (error) {
-                    console.error('Failed to DM user about LOA status:', error);
+                    console.error('Failed to post LOA request:', error);
+                    await interaction.reply({ content: 'Failed to post your LOA request.', ephemeral: true });
                 }
             });
-        }
-    } else if (interaction.isModalSubmit()) {
-        if (interaction.customId.startsWith('announce_')) {
+        } else if (interaction.customId.startsWith('announce_')) {
             const parts = interaction.customId.split('_');
             const channelId = parts[1];
             const pingRoleId = parts[2];
@@ -261,13 +312,12 @@ client.on('interactionCreate', async interaction => {
             const categoryId = parts[1];
             const supportRoleId = parts[2];
             const transcriptChannelId = parts[3] === 'none' ? null : parts[3];
-            const loaChannelId = parts[4] === 'none' ? null : parts[4];
 
             const messageText = interaction.fields.getTextInputValue('ticketsetup_message');
 
             db.run('INSERT OR IGNORE INTO settings (guild_id) VALUES (?)', [interaction.guild.id]);
-            db.run('UPDATE settings SET ticket_category_id = ?, ticket_support_role_id = ?, ticket_transcript_channel_id = ?, loa_channel_id = ? WHERE guild_id = ?',
-                [categoryId, supportRoleId, transcriptChannelId, loaChannelId, interaction.guild.id], async (err) => {
+            db.run('UPDATE settings SET ticket_category_id = ?, ticket_support_role_id = ?, ticket_transcript_channel_id = ? WHERE guild_id = ?',
+                [categoryId, supportRoleId, transcriptChannelId, interaction.guild.id], async (err) => {
                     if (err) return interaction.reply({ content: 'Failed to save ticket settings.', ephemeral: true });
 
                     const embed = new EmbedBuilder()
@@ -288,11 +338,7 @@ client.on('interactionCreate', async interaction => {
                             new ButtonBuilder()
                                 .setCustomId('create_ticket_suggestion')
                                 .setLabel('Suggestion 💡')
-                                .setStyle(ButtonStyle.Success),
-                            new ButtonBuilder()
-                                .setCustomId('create_ticket_loa')
-                                .setLabel('Apply LOA ✈')
-                                .setStyle(ButtonStyle.Primary)
+                                .setStyle(ButtonStyle.Success)
                         );
 
                     await interaction.channel.send({ embeds: [embed], components: [row] });
@@ -320,73 +366,22 @@ client.on('interactionCreate', async interaction => {
             const ticketType = interaction.customId.replace('ticketmodal_', '');
             let userReason = '';
             let userTitle = '';
-            let userName = '';
-            let userId = '';
-            let userDate = '';
 
             if (ticketType === 'suggestion') {
                 userTitle = interaction.fields.getTextInputValue('ticketmodal_title');
                 userReason = interaction.fields.getTextInputValue('ticketmodal_reason');
-            } else if (ticketType === 'loa') {
-                userName = interaction.fields.getTextInputValue('ticketmodal_name');
-                userId = interaction.fields.getTextInputValue('ticketmodal_id');
-                userReason = interaction.fields.getTextInputValue('ticketmodal_reason');
-                userDate = interaction.fields.getTextInputValue('ticketmodal_date');
             } else {
                 userReason = interaction.fields.getTextInputValue('ticketmodal_reason');
             }
 
-            db.get('SELECT ticket_category_id, ticket_support_role_id, loa_channel_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+            db.get('SELECT ticket_category_id, ticket_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
                 if (err || !row) return interaction.reply({ content: 'Ticket system is not set up correctly.', ephemeral: true });
 
                 const categoryId = row.ticket_category_id;
                 const supportRoleId = row.ticket_support_role_id;
-                const loaChannelId = row.loa_channel_id;
 
-                if (!supportRoleId) {
-                    return interaction.reply({ content: 'Support role is missing. Tell an admin to run `/ticket setup`.', ephemeral: true });
-                }
-
-                if (ticketType === 'loa') {
-                    if (!loaChannelId) return interaction.reply({ content: 'LOA Channel is not set up. Tell an admin to run `/ticket setup`.', ephemeral: true });
-                    const loaChannel = interaction.guild.channels.cache.get(loaChannelId);
-                    if (!loaChannel) return interaction.reply({ content: 'LOA Channel not found.', ephemeral: true });
-
-                    const embed = new EmbedBuilder()
-                        .setTitle('Leave of Absence Request')
-                        .setColor('Purple')
-                        .addFields(
-                            { name: 'Name', value: userName, inline: true },
-                            { name: 'ID', value: userId, inline: true },
-                            { name: 'Return Date', value: userDate, inline: true },
-                            { name: 'Reason', value: userReason, inline: false }
-                        )
-                        .setTimestamp();
-
-                    const rowComponent = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`loa_approve_${interaction.user.id}`)
-                                .setLabel('Approve')
-                                .setStyle(ButtonStyle.Success),
-                            new ButtonBuilder()
-                                .setCustomId(`loa_deny_${interaction.user.id}`)
-                                .setLabel('Deny')
-                                .setStyle(ButtonStyle.Danger)
-                        );
-
-                    try {
-                        await loaChannel.send({ content: `<@&${supportRoleId}> | Submitted by ${interaction.user}`, embeds: [embed], components: [rowComponent] });
-                        await interaction.reply({ content: 'Your LOA request has been submitted!', ephemeral: true });
-                    } catch (error) {
-                        console.error('Failed to post LOA request:', error);
-                        await interaction.reply({ content: 'Failed to post your LOA request.', ephemeral: true });
-                    }
-                    return;
-                }
-
-                if (!categoryId) {
-                    return interaction.reply({ content: 'Ticket category is missing. Tell an admin to run `/ticket setup`.', ephemeral: true });
+                if (!categoryId || !supportRoleId) {
+                    return interaction.reply({ content: 'Ticket system is missing configuration. Tell an admin to run `/ticket setup`.', ephemeral: true });
                 }
 
                 // Create the channel
