@@ -1,0 +1,31 @@
+name: Deploy Bot to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into server and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: 22
+          script: |
+            # Navigate to the bot directory
+            cd ~/TheFederalBot
+            
+            # Pull the latest code from GitHub
+            git pull origin main
+            
+            # Install any new dependencies
+            npm install
+            npm rebuild sqlite3 || true
+            
+            # Restart the bot using PM2
+            pm2 restart TheFederalBot
