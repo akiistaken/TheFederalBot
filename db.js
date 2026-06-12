@@ -42,8 +42,12 @@ const db = new sqlite3.Database(dbPath, (err) => {
             guild_id TEXT NOT NULL,
             platform TEXT NOT NULL,
             username TEXT NOT NULL,
-            last_stream_id TEXT
-        )`);
+            last_stream_id TEXT,
+            last_video_id TEXT
+        )`, () => {
+            // Fails silently if it already exists
+            db.run(`ALTER TABLE streamers ADD COLUMN last_video_id TEXT`, () => {});
+        });
 
         // Create Reaction Roles Table
         db.run(`CREATE TABLE IF NOT EXISTS reaction_roles (

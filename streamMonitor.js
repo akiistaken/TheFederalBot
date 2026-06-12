@@ -84,6 +84,36 @@ async function checkYouTube(client, rows) {
     }
 }
 
+async function checkYouTubeVideo(client, rows) {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) return;
+
+    const ytUsers = rows.filter(r => r.platform === 'youtube');
+    if (ytUsers.length === 0) return;
+
+    for (const user of ytUsers) {
+        try {
+            // Fetch the most recent video
+            const res = await axios.get(`https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${user.username}&order=date&type=video&maxResults=1&key=${apiKey}`);
+            const videoData = res.data.items[0];
+
+            // liveBroadcastContent will be 'none' for regular videos, and 'live' or 'upcoming' for streams
+            if (videoData && videoData.snippet.liveBroadcastContent === 'none') {
+                const videoId = videoData.id.videoId;
+                if (user.last_video_id !== videoId) {
+                    // Only announce if we actually had a previous video tracked to avoid announcing an old video when first added
+                    if (user.last_video_id !== null) {
+                        await announceVideo(client, user, videoData.snippet.title, `https://www.youtube.com/watch?v=${videoId}`, videoData.snippet.thumbnails.high.url);
+                    }
+                    db.run('UPDATE streamers SET last_video_id = ? WHERE id = ?', [videoId, user.id]);
+                }
+            }
+        } catch (error) {
+            console.error(`YouTube Video check failed for ${user.username}:`, error.response?.data?.error?.message || error.message);
+        }
+    }
+}
+
 async function announceStream(client, dbRow, title, url, category, thumbnail) {
     db.get('SELECT announcement_channel_id FROM settings WHERE guild_id = ?', [dbRow.guild_id], async (err, setting) => {
         if (err || !setting || !setting.announcement_channel_id) return;
@@ -110,16 +140,42 @@ async function announceStream(client, dbRow, title, url, category, thumbnail) {
     });
 }
 
+async function announceVideo(client, dbRow, title, url, thumbnail) {
+    db.get('SELECT announcement_channel_id FROM settings WHERE guild_id = ?', [dbRow.guild_id], async (err, setting) => {
+        if (err || !setting || !setting.announcement_channel_id) return;
+        
+        const guild = client.guilds.cache.get(dbRow.guild_id);
+        if (!guild) return;
+        const channel = guild.channels.cache.get(setting.announcement_channel_id);
+        if (!channel) return;
+
+        const embed = new EmbedBuilder()
+            .setTitle(`📺 ${dbRow.username} just uploaded a new video!`)
+            .setDescription(`**${title}**\n\nWatch here: ${url}`)
+            .setColor('#FF0000')
+            .setURL(url)
+            .setImage(thumbnail)
+            .setTimestamp();
+
+        try {
+            await channel.send({ content: `@everyone **${dbRow.username}** uploaded a new video!`, embeds: [embed] });
+        } catch (error) {
+            console.error(`Failed to send announcement in guild ${dbRow.guild_id}:`, error);
+        }
+    });
+}
+
 function startStreamMonitor(client) {
     console.log('Started Stream Monitor...');
     
     // Check APIs every 5 minutes
     setInterval(() => {
-        db.all('SELECT id, guild_id, platform, username, last_stream_id FROM streamers', [], (err, rows) => {
+        db.all('SELECT id, guild_id, platform, username, last_stream_id, last_video_id FROM streamers', [], (err, rows) => {
             if (err || !rows || rows.length === 0) return;
             
             checkTwitch(client, rows);
             checkYouTube(client, rows);
+            checkYouTubeVideo(client, rows);
         });
     }, 5 * 60 * 1000); 
 }
