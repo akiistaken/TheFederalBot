@@ -83,6 +83,34 @@ client.on('interactionCreate', async interaction => {
                     .setRequired(true);
 
                 modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(explInput));
+            } else if (ticketType === 'loa') {
+                const nameInput = new TextInputBuilder()
+                    .setCustomId('ticketmodal_name')
+                    .setLabel('Name')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+                const idInput = new TextInputBuilder()
+                    .setCustomId('ticketmodal_id')
+                    .setLabel('ID')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('ticketmodal_reason')
+                    .setLabel('Reason')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true);
+                const dateInput = new TextInputBuilder()
+                    .setCustomId('ticketmodal_date')
+                    .setLabel('Return Date')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(nameInput),
+                    new ActionRowBuilder().addComponents(idInput),
+                    new ActionRowBuilder().addComponents(reasonInput),
+                    new ActionRowBuilder().addComponents(dateInput)
+                );
             } else {
                 const reasonInput = new TextInputBuilder()
                     .setCustomId('ticketmodal_reason')
@@ -213,7 +241,11 @@ client.on('interactionCreate', async interaction => {
                             new ButtonBuilder()
                                 .setCustomId('create_ticket_suggestion')
                                 .setLabel('Suggestion 💡')
-                                .setStyle(ButtonStyle.Success)
+                                .setStyle(ButtonStyle.Success),
+                            new ButtonBuilder()
+                                .setCustomId('create_ticket_loa')
+                                .setLabel('Apply LOA ✈')
+                                .setStyle(ButtonStyle.Primary)
                         );
 
                     await interaction.channel.send({ embeds: [embed], components: [row] });
@@ -241,10 +273,18 @@ client.on('interactionCreate', async interaction => {
             const ticketType = interaction.customId.replace('ticketmodal_', '');
             let userReason = '';
             let userTitle = '';
+            let userName = '';
+            let userId = '';
+            let userDate = '';
 
             if (ticketType === 'suggestion') {
                 userTitle = interaction.fields.getTextInputValue('ticketmodal_title');
                 userReason = interaction.fields.getTextInputValue('ticketmodal_reason');
+            } else if (ticketType === 'loa') {
+                userName = interaction.fields.getTextInputValue('ticketmodal_name');
+                userId = interaction.fields.getTextInputValue('ticketmodal_id');
+                userReason = interaction.fields.getTextInputValue('ticketmodal_reason');
+                userDate = interaction.fields.getTextInputValue('ticketmodal_date');
             } else {
                 userReason = interaction.fields.getTextInputValue('ticketmodal_reason');
             }
@@ -277,6 +317,10 @@ client.on('interactionCreate', async interaction => {
                         channelPrefix = 'suggest';
                         embedTitle = 'Suggestion Ticket';
                         color = 'Green';
+                    } else if (ticketType === 'loa') {
+                        channelPrefix = 'loa';
+                        embedTitle = 'Leave of Absence Request';
+                        color = 'Purple';
                     }
 
                     const ticketChannel = await interaction.guild.channels.create({
@@ -312,6 +356,13 @@ client.on('interactionCreate', async interaction => {
                         embed.addFields(
                             { name: 'Suggestion Title', value: userTitle },
                             { name: 'Explanation', value: userReason }
+                        );
+                    } else if (ticketType === 'loa') {
+                        embed.addFields(
+                            { name: 'Name', value: userName, inline: true },
+                            { name: 'ID', value: userId, inline: true },
+                            { name: 'Return Date', value: userDate, inline: true },
+                            { name: 'Reason', value: userReason, inline: false }
                         );
                     } else {
                         embed.addFields({ name: 'Reason / Details', value: userReason });

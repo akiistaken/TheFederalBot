@@ -73,7 +73,7 @@ module.exports = {
                 .setLabel('Panel Message')
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(true)
-                .setValue('Click a button below to open a support ticket.\n\n🚨 **Report**: Report a user or bug\n⚖ **Appeal**: Appeal a punishment\n💡 **Suggestion**: Submit a server suggestion');
+                .setValue('Click a button below to open a support ticket.\n\n🚨 **Report**: Report a user or bug\n⚖ **Appeal**: Appeal a punishment\n💡 **Suggestion**: Submit a server suggestion\n✈ **Apply LOA**: Apply for Leave of Absence');
 
             const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
             modal.addComponents(firstActionRow);
