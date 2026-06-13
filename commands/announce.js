@@ -8,7 +8,7 @@ module.exports = {
         .addChannelOption(option => 
             option.setName('channel')
                 .setDescription('The channel to send the announcement to')
-                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum)
+                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum, ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread)
                 .setRequired(true))
         .addRoleOption(option => 
             option.setName('ping')

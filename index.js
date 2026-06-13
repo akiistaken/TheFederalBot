@@ -404,7 +404,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     const sentMessage = await channel.send(messageOptions);
                     
-                    if (threadName) {
+                    if (threadName && !channel.isThread()) {
                         await sentMessage.startThread({
                             name: threadName,
                             autoArchiveDuration: 1440,
