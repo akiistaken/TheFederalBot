@@ -36,6 +36,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
             db.run(`ALTER TABLE settings ADD COLUMN welcome_ping_channels TEXT`, () => {});
             db.run(`ALTER TABLE settings ADD COLUMN loa_channel_id TEXT`, () => {});
             db.run(`ALTER TABLE settings ADD COLUMN loa_support_role_id TEXT`, () => {});
+            db.run(`ALTER TABLE settings ADD COLUMN rolereq_log_channel_id TEXT`, () => {});
+            db.run(`ALTER TABLE settings ADD COLUMN rolereq_support_role_id TEXT`, () => {});
         });
 
         // Create Streamers Table

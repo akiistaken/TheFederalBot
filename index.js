@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, Collection, GatewayIntentBits, Partials, EmbedBuilder, AuditLogEvent, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, AttachmentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, Partials, EmbedBuilder, AuditLogEvent, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, AttachmentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, RoleSelectMenuBuilder } = require('discord.js');
 const db = require('./db');
 
 const client = new Client({
@@ -17,7 +17,6 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-
 // Load Commands
 const commandsPath = path.join(__dirname, 'commands');
 if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
@@ -80,7 +79,37 @@ client.on('interactionCreate', async interaction => {
             }
         }
     } else if (interaction.isButton()) {
-        if (interaction.customId === 'create_loa_request') {
+        if (interaction.customId === 'create_role_request') {
+            const modal = new ModalBuilder()
+                .setCustomId('rolerequestmodal')
+                .setTitle('Request Roles');
+
+            const rankInput = new TextInputBuilder()
+                .setCustomId('rolereq_rank')
+                .setLabel('Rank')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const ignInput = new TextInputBuilder()
+                .setCustomId('rolereq_ign')
+                .setLabel('In Game Name')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const idInput = new TextInputBuilder()
+                .setCustomId('rolereq_id')
+                .setLabel('ID')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(rankInput),
+                new ActionRowBuilder().addComponents(ignInput),
+                new ActionRowBuilder().addComponents(idInput)
+            );
+
+            await interaction.showModal(modal);
+        } else if (interaction.customId === 'create_loa_request') {
             const modal = new ModalBuilder()
                 .setCustomId('loamodal')
                 .setTitle('Leave of Absence Request');
@@ -274,7 +303,57 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply({ content: 'Here is the transcript for this ticket:', files: [attachment] });
         }
     } else if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'loamodal') {
+        if (interaction.customId === 'rolerequestmodal') {
+            const rank = interaction.fields.getTextInputValue('rolereq_rank');
+            const ign = interaction.fields.getTextInputValue('rolereq_ign');
+            const inGameId = interaction.fields.getTextInputValue('rolereq_id');
+
+            const newNickname = `${rank} | ${ign} | ${inGameId}`.substring(0, 32);
+
+            try {
+                if (interaction.member.manageable) {
+                    await interaction.member.setNickname(newNickname);
+                }
+            } catch (err) {
+                console.error('Failed to change nickname for role request:', err);
+            }
+
+            db.get('SELECT rolereq_log_channel_id, rolereq_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+                if (err || !row || !row.rolereq_log_channel_id || !row.rolereq_support_role_id) {
+                    return interaction.reply({ content: 'Role request system is not completely set up.', ephemeral: true });
+                }
+
+                const logChannel = interaction.guild.channels.cache.get(row.rolereq_log_channel_id);
+                if (!logChannel) return interaction.reply({ content: 'Log Channel not found.', ephemeral: true });
+
+                const embed = new EmbedBuilder()
+                    .setTitle('Pending Role Request')
+                    .setColor('Yellow')
+                    .addFields(
+                        { name: 'User', value: `${interaction.user} (${interaction.user.tag})`, inline: false },
+                        { name: 'Rank', value: rank, inline: true },
+                        { name: 'In Game Name', value: ign, inline: true },
+                        { name: 'ID', value: inGameId, inline: true }
+                    )
+                    .setTimestamp();
+
+                const roleSelect = new RoleSelectMenuBuilder()
+                    .setCustomId(`grant_roles_${interaction.user.id}`)
+                    .setPlaceholder('Select roles to grant...')
+                    .setMinValues(1)
+                    .setMaxValues(10);
+
+                const rowComponent = new ActionRowBuilder().addComponents(roleSelect);
+
+                try {
+                    await logChannel.send({ content: `<@&${row.rolereq_support_role_id}> | New Role Request`, embeds: [embed], components: [rowComponent] });
+                    await interaction.reply({ content: 'Your role request has been submitted!', ephemeral: true });
+                } catch (error) {
+                    console.error('Failed to post role request:', error);
+                    await interaction.reply({ content: 'Failed to post your role request.', ephemeral: true });
+                }
+            });
+        } else if (interaction.customId === 'loamodal') {
             const userName = interaction.fields.getTextInputValue('loa_name');
             const userId = interaction.fields.getTextInputValue('loa_id');
             const userReason = interaction.fields.getTextInputValue('loa_reason');
@@ -568,6 +647,45 @@ client.on('interactionCreate', async interaction => {
                 } catch (err) {
                     console.error('Failed to create ticket channel:', err);
                     await interaction.reply({ content: 'Failed to create your ticket. The bot might be missing permissions.', ephemeral: true });
+                }
+            });
+        }
+    } else if (interaction.isRoleSelectMenu()) {
+        if (interaction.customId.startsWith('grant_roles_')) {
+            const targetUserId = interaction.customId.replace('grant_roles_', '');
+            
+            db.get('SELECT rolereq_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+                if (err || !row || !row.rolereq_support_role_id) return interaction.reply({ content: 'Role request system error.', ephemeral: true });
+
+                const hasSupportRole = interaction.member.roles.cache.has(row.rolereq_support_role_id);
+                const hasAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
+                if (!hasSupportRole && !hasAdmin) {
+                    return interaction.reply({ content: 'Only support staff can grant roles for these requests.', ephemeral: true });
+                }
+
+                try {
+                    const targetMember = await interaction.guild.members.fetch(targetUserId);
+                    if (!targetMember) return interaction.reply({ content: 'User left the server.', ephemeral: true });
+
+                    const rolesToGive = interaction.roles.values(); // Collection of Roles
+                    const roleIds = Array.from(rolesToGive).map(r => r.id);
+                    
+                    await targetMember.roles.add(roleIds);
+
+                    const originalEmbed = interaction.message.embeds[0];
+                    const newEmbed = EmbedBuilder.from(originalEmbed)
+                        .setColor('Green')
+                        .setTitle('Role Request - Granted')
+                        .addFields({ name: 'Roles Granted By', value: `${interaction.user}`, inline: false })
+                        .addFields({ name: 'Roles Granted', value: Array.from(rolesToGive).map(r => `<@&${r.id}>`).join(', '), inline: false });
+
+                    await interaction.update({ embeds: [newEmbed], components: [] });
+                } catch (error) {
+                    console.error('Failed to grant roles via select menu:', error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: 'Failed to grant roles. Check my permissions and role hierarchy.', ephemeral: true });
+                    }
                 }
             });
         }
