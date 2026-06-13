@@ -143,8 +143,24 @@ client.on('interactionCreate', async interaction => {
                     return interaction.reply({ content: 'Only support staff can review LOA requests.', ephemeral: true });
                 }
 
-                const newColor = isApprove ? 'Green' : 'Red';
-                const statusText = isApprove ? 'Approved' : 'Denied';
+                if (!isApprove) {
+                    const modal = new ModalBuilder()
+                        .setCustomId(`loadenymodal_${targetUserId}`)
+                        .setTitle('Deny LOA Request');
+
+                    const reasonInput = new TextInputBuilder()
+                        .setCustomId('deny_reason')
+                        .setLabel('Reason for Denial (Optional)')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(false);
+
+                    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+                    await interaction.showModal(modal);
+                    return;
+                }
+
+                const newColor = 'Green';
+                const statusText = 'Approved';
 
                 const originalEmbed = interaction.message.embeds[0];
                 const newEmbed = EmbedBuilder.from(originalEmbed)
@@ -156,7 +172,7 @@ client.on('interactionCreate', async interaction => {
                         new ButtonBuilder()
                             .setCustomId('dummy_btn')
                             .setLabel(statusText)
-                            .setStyle(isApprove ? ButtonStyle.Success : ButtonStyle.Danger)
+                            .setStyle(ButtonStyle.Success)
                             .setDisabled(true)
                     );
 
@@ -291,6 +307,48 @@ client.on('interactionCreate', async interaction => {
                     await interaction.reply({ content: 'Failed to post your LOA request.', ephemeral: true });
                 }
             });
+        } else if (interaction.customId.startsWith('loadenymodal_')) {
+            const targetUserId = interaction.customId.replace('loadenymodal_', '');
+            const denyReason = interaction.fields.getTextInputValue('deny_reason');
+
+            const statusText = 'Denied';
+            const newColor = 'Red';
+
+            try {
+                const originalEmbed = interaction.message.embeds[0];
+                const newEmbed = EmbedBuilder.from(originalEmbed)
+                    .setColor(newColor)
+                    .setTitle(`Leave of Absence Request - ${statusText}`);
+
+                if (denyReason) {
+                    newEmbed.addFields({ name: 'Denial Reason', value: denyReason });
+                }
+
+                const rowComponent = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('dummy_btn')
+                            .setLabel(statusText)
+                            .setStyle(ButtonStyle.Danger)
+                            .setDisabled(true)
+                    );
+
+                await interaction.update({ embeds: [newEmbed], components: [rowComponent] });
+
+                const targetUser = await interaction.client.users.fetch(targetUserId);
+                if (targetUser) {
+                    let dmMsg = `Your Leave of Absence (LOA) request in **${interaction.guild.name}** has been **${statusText}**.`;
+                    if (denyReason) {
+                        dmMsg += `\n**Reason:** ${denyReason}`;
+                    }
+                    await targetUser.send(dmMsg).catch(() => {});
+                }
+            } catch (error) {
+                console.error('Failed to process LOA denial modal:', error);
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ content: 'Failed to process denial.', ephemeral: true });
+                }
+            }
         } else if (interaction.customId.startsWith('announce_')) {
             const parts = interaction.customId.split('_');
             const channelId = parts[1];
