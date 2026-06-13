@@ -379,14 +379,23 @@ client.on('interactionCreate', async interaction => {
             }
 
             try {
-                const sentMessage = await channel.send(messageOptions);
-                
-                if (threadName) {
-                    await sentMessage.startThread({
-                        name: threadName,
-                        autoArchiveDuration: 1440,
-                        reason: 'Announcement Discussion Thread'
+                if (channel.type === ChannelType.GuildForum) {
+                    const finalThreadName = threadName || 'Announcement';
+                    await channel.threads.create({
+                        name: finalThreadName,
+                        message: messageOptions,
+                        reason: 'Forum Announcement'
                     });
+                } else {
+                    const sentMessage = await channel.send(messageOptions);
+                    
+                    if (threadName) {
+                        await sentMessage.startThread({
+                            name: threadName,
+                            autoArchiveDuration: 1440,
+                            reason: 'Announcement Discussion Thread'
+                        });
+                    }
                 }
                 
                 await interaction.reply({ content: `Announcement successfully sent to ${channel}!`, ephemeral: true });
