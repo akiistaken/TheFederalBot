@@ -18,19 +18,6 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Setup Music Player
-const { Player } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
-
-const player = new Player(client);
-player.extractors.loadMulti(DefaultExtractors);
-
-player.events.on('playerStart', (queue, track) => {
-    if (queue.metadata && queue.metadata.channel) {
-        queue.metadata.channel.send(`▶ | Started playing: **${track.title}**`);
-    }
-});
-
 // Load Commands
 const commandsPath = path.join(__dirname, 'commands');
 if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
