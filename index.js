@@ -49,9 +49,27 @@ for (const file of commandFiles) {
 
 const { startStreamMonitor } = require('./streamMonitor');
 
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     startStreamMonitor(client);
+    
+    // Force instant command registration in all servers to bypass global cache
+    try {
+        const commands = [];
+        const commandsPath = path.join(__dirname, 'commands');
+        const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+        for (const file of commandFiles) {
+            const command = require(`./commands/${file}`);
+            commands.push(command.data.toJSON());
+        }
+
+        for (const guild of client.guilds.cache.values()) {
+            await guild.commands.set(commands);
+            console.log(`Instantly reloaded commands for guild: ${guild.name}`);
+        }
+    } catch (error) {
+        console.error('Failed to instantly reload commands:', error);
+    }
 });
 
 client.on('interactionCreate', async interaction => {
