@@ -31,9 +31,17 @@ module.exports = {
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true);
 
-        const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
+        const imageInput = new TextInputBuilder()
+            .setCustomId('announce_image')
+            .setLabel('Image URL (Optional)')
+            .setPlaceholder('https://example.com/image.png')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
 
-        modal.addComponents(firstActionRow);
+        const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
+        const secondActionRow = new ActionRowBuilder().addComponents(imageInput);
+
+        modal.addComponents(firstActionRow, secondActionRow);
 
         await interaction.showModal(modal);
     },

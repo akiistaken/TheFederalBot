@@ -354,6 +354,13 @@ client.on('interactionCreate', async interaction => {
             const channelId = parts[1];
             const pingRoleId = parts[2];
             const messageText = interaction.fields.getTextInputValue('announce_message');
+            
+            let imageUrl = '';
+            try {
+                imageUrl = interaction.fields.getTextInputValue('announce_image');
+            } catch (e) {
+                // Ignore if component is missing
+            }
 
             const channel = interaction.guild.channels.cache.get(channelId);
             if (!channel) return interaction.reply({ content: 'Channel not found!', ephemeral: true });
@@ -364,6 +371,13 @@ client.on('interactionCreate', async interaction => {
             }
 
             const messageOptions = { content: finalContent };
+
+            if (imageUrl) {
+                const embed = new EmbedBuilder()
+                    .setImage(imageUrl)
+                    .setColor('#2b2d31');
+                messageOptions.embeds = [embed];
+            }
 
             try {
                 await channel.send(messageOptions);
