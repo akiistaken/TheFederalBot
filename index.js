@@ -390,11 +390,7 @@ client.on('interactionCreate', async interaction => {
             const messageOptions = { content: finalContent };
 
             if (imageUrl) {
-                const embed = new EmbedBuilder()
-                    .setTitle('\u200B') // Empty title required for Discord to render an image-only embed
-                    .setImage(imageUrl)
-                    .setColor('#2b2d31');
-                messageOptions.embeds = [embed];
+                messageOptions.files = [new AttachmentBuilder(imageUrl)];
             }
 
             try {
