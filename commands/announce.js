@@ -38,10 +38,18 @@ module.exports = {
             .setStyle(TextInputStyle.Short)
             .setRequired(false);
 
+        const threadInput = new TextInputBuilder()
+            .setCustomId('announce_thread')
+            .setLabel('Thread Name (Optional)')
+            .setPlaceholder('Enter a name to create a discussion thread')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
         const firstActionRow = new ActionRowBuilder().addComponents(messageInput);
         const secondActionRow = new ActionRowBuilder().addComponents(imageInput);
+        const thirdActionRow = new ActionRowBuilder().addComponents(threadInput);
 
-        modal.addComponents(firstActionRow, secondActionRow);
+        modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
 
         await interaction.showModal(modal);
     },
