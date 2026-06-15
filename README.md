@@ -8,6 +8,10 @@ A powerful, multi-purpose Discord moderation bot built with Discord.js (v14) and
 - **Tickets**: Create and manage support tickets.
 - **Announcements**: Send and edit rich embed announcements.
 - **Reaction Roles**: Easily set up reaction roles for users to self-assign roles.
+- **Role Requests**: Interactive system for users to request roles, with staff approval workflows.
+- **Leave of Absence (LOA)**: System for staff to request and track LOAs.
+- **Stream Monitor**: Automatic announcements for Twitch & YouTube live streams and YouTube video uploads.
+- **Automod & Welcome**: Word filtering, welcome messages, and auto-role assignment.
 - **Settings**: Guild-specific configuration using SQLite.
 
 ## Commands
@@ -18,8 +22,10 @@ A powerful, multi-purpose Discord moderation bot built with Discord.js (v14) and
 - `/edit_announce`: Edit an existing announcement message.
 - `/help`: Display a list of available commands.
 - `/kick`: Kick a user from the server.
+- `/loa`: Manage the Leave of Absence request system.
 - `/purge`: Delete a specified number of messages.
 - `/reactionrole`: Set up a reaction role message.
+- `/rolerequest`: Set up and manage the role request system.
 - `/settings`: Configure bot settings for the server (e.g., log channels).
 - `/ticket`: Create a support ticket system.
 - `/timeout`: Temporarily timeout a user.
