@@ -89,7 +89,7 @@ client.on('interactionCreate', async interaction => {
 
             const rankInput = new TextInputBuilder()
                 .setCustomId('rolereq_rank')
-                .setLabel('Rank')
+                .setLabel('Rank/Family')
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
@@ -416,7 +416,7 @@ client.on('interactionCreate', async interaction => {
                     .setColor('Yellow')
                     .addFields(
                         { name: 'User', value: `${interaction.user} (${interaction.user.tag})`, inline: false },
-                        { name: 'Rank', value: rank, inline: true },
+                        { name: 'Rank/Family', value: rank, inline: true },
                         { name: 'In Game Name', value: ign, inline: true },
                         { name: 'ID', value: inGameId, inline: true }
                     )

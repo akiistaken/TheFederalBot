@@ -42,7 +42,7 @@ module.exports = {
 
                     const embed = new EmbedBuilder()
                         .setTitle('Role Request')
-                        .setDescription('Click the button below to request your roles. You will need to provide your Rank, In Game Name, and ID.')
+                        .setDescription('Click the button below to request your roles. You will need to provide your Rank/Family, In Game Name, and ID.')
                         .setColor('Blue');
 
                     const row = new ActionRowBuilder()
