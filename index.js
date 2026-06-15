@@ -35,6 +35,9 @@ for (const file of commandFiles) {
 
 const { startStreamMonitor } = require('./streamMonitor');
 
+// Temporary cache for role request confirmations
+const pendingRoleGrants = new Map();
+
 client.once('ready', async () => {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     startStreamMonitor(client);
@@ -214,6 +217,49 @@ client.on('interactionCreate', async interaction => {
 
                 const rowComponent = new ActionRowBuilder().addComponents(roleSelect);
                 await interaction.update({ components: [rowComponent] });
+            });
+        } else if (interaction.customId.startsWith('confirm_grant_') || interaction.customId.startsWith('cancel_grant_')) {
+            const isConfirm = interaction.customId.startsWith('confirm_grant_');
+            const targetUserId = interaction.customId.replace(isConfirm ? 'confirm_grant_' : 'cancel_grant_', '');
+
+            if (!isConfirm) {
+                const roleSelect = new RoleSelectMenuBuilder()
+                    .setCustomId(`grant_roles_${targetUserId}`)
+                    .setPlaceholder('Select roles to grant...')
+                    .setMinValues(1)
+                    .setMaxValues(10);
+                const rowComponent = new ActionRowBuilder().addComponents(roleSelect);
+                return interaction.update({ content: '', components: [rowComponent] });
+            }
+
+            const roleIds = pendingRoleGrants.get(interaction.message.id);
+            if (!roleIds) return interaction.reply({ content: 'Session expired or invalid.', ephemeral: true });
+
+            pendingRoleGrants.delete(interaction.message.id);
+
+            db.get('SELECT rolereq_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+                if (err || !row || !row.rolereq_support_role_id) return interaction.reply({ content: 'Role request system error.', ephemeral: true });
+                
+                try {
+                    const targetMember = await interaction.guild.members.fetch(targetUserId);
+                    if (!targetMember) return interaction.reply({ content: 'User left the server.', ephemeral: true });
+
+                    await targetMember.roles.add(roleIds);
+
+                    const originalEmbed = interaction.message.embeds[0];
+                    const newEmbed = EmbedBuilder.from(originalEmbed)
+                        .setColor('Green')
+                        .setTitle('Role Request - Granted')
+                        .addFields({ name: 'Roles Granted By', value: `${interaction.user}`, inline: false })
+                        .addFields({ name: 'Roles Granted', value: roleIds.map(id => `<@&${id}>`).join(', '), inline: false });
+
+                    await interaction.update({ content: '', embeds: [newEmbed], components: [] });
+                } catch (error) {
+                    console.error('Failed to grant roles:', error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: 'Failed to grant roles. Check my permissions.', ephemeral: true });
+                    }
+                }
             });
         } else if (interaction.customId.startsWith('loa_approve_') || interaction.customId.startsWith('loa_deny_')) {
             const isApprove = interaction.customId.startsWith('loa_approve_');
@@ -756,6 +802,21 @@ client.on('interactionCreate', async interaction => {
                     const rolesToGive = interaction.roles.values(); // Collection of Roles
                     const roleIds = Array.from(rolesToGive).map(r => r.id);
                     
+                    // --- TESTING FEATURE: CONFIRM BUTTON ---
+                    const requireConfirm = true;
+                    if (requireConfirm) {
+                        pendingRoleGrants.set(interaction.message.id, roleIds);
+                        
+                        const confirmRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`confirm_grant_${targetUserId}`).setLabel('Confirm Grant').setStyle(ButtonStyle.Success),
+                            new ButtonBuilder().setCustomId(`cancel_grant_${targetUserId}`).setLabel('Cancel').setStyle(ButtonStyle.Danger)
+                        );
+                        
+                        const originalEmbed = interaction.message.embeds[0];
+                        return interaction.update({ content: `You selected ${roleIds.length} roles. Please confirm.`, embeds: [originalEmbed], components: [confirmRow] });
+                    }
+                    // --- END TESTING FEATURE ---
+
                     await targetMember.roles.add(roleIds);
 
                     const originalEmbed = interaction.message.embeds[0];
@@ -763,9 +824,9 @@ client.on('interactionCreate', async interaction => {
                         .setColor('Green')
                         .setTitle('Role Request - Granted')
                         .addFields({ name: 'Roles Granted By', value: `${interaction.user}`, inline: false })
-                        .addFields({ name: 'Roles Granted', value: Array.from(rolesToGive).map(r => `<@&${r.id}>`).join(', '), inline: false });
+                        .addFields({ name: 'Roles Granted', value: roleIds.map(id => `<@&${id}>`).join(', '), inline: false });
 
-                    await interaction.update({ embeds: [newEmbed], components: [] });
+                    await interaction.update({ content: '', embeds: [newEmbed], components: [] });
                 } catch (error) {
                     console.error('Failed to grant roles via select menu:', error);
                     if (!interaction.replied && !interaction.deferred) {
