@@ -176,6 +176,45 @@ client.on('interactionCreate', async interaction => {
             }
 
             await interaction.showModal(modal);
+        } else if (interaction.customId.startsWith('rolereq_approve_') || interaction.customId.startsWith('rolereq_deny_')) {
+            const isApprove = interaction.customId.startsWith('rolereq_approve_');
+            const targetUserId = interaction.customId.replace(isApprove ? 'rolereq_approve_' : 'rolereq_deny_', '');
+
+            db.get('SELECT rolereq_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
+                if (err || !row || !row.rolereq_support_role_id) return interaction.reply({ content: 'Role request system error.', ephemeral: true });
+
+                const hasSupportRole = interaction.member.roles.cache.has(row.rolereq_support_role_id);
+                const hasAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
+                if (!hasSupportRole && !hasAdmin) {
+                    return interaction.reply({ content: 'Only support staff can review role requests.', ephemeral: true });
+                }
+
+                if (!isApprove) {
+                    const modal = new ModalBuilder()
+                        .setCustomId(`rolereqdenymodal_${targetUserId}`)
+                        .setTitle('Deny Role Request');
+
+                    const reasonInput = new TextInputBuilder()
+                        .setCustomId('deny_reason')
+                        .setLabel('Reason for Denial (Optional)')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(false);
+
+                    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+                    await interaction.showModal(modal);
+                    return;
+                }
+
+                const roleSelect = new RoleSelectMenuBuilder()
+                    .setCustomId(`grant_roles_${targetUserId}`)
+                    .setPlaceholder('Select roles to grant...')
+                    .setMinValues(1)
+                    .setMaxValues(10);
+
+                const rowComponent = new ActionRowBuilder().addComponents(roleSelect);
+                await interaction.update({ components: [rowComponent] });
+            });
         } else if (interaction.customId.startsWith('loa_approve_') || interaction.customId.startsWith('loa_deny_')) {
             const isApprove = interaction.customId.startsWith('loa_approve_');
             const targetUserId = interaction.customId.replace(isApprove ? 'loa_approve_' : 'loa_deny_', '');
@@ -337,13 +376,17 @@ client.on('interactionCreate', async interaction => {
                     )
                     .setTimestamp();
 
-                const roleSelect = new RoleSelectMenuBuilder()
-                    .setCustomId(`grant_roles_${interaction.user.id}`)
-                    .setPlaceholder('Select roles to grant...')
-                    .setMinValues(1)
-                    .setMaxValues(10);
-
-                const rowComponent = new ActionRowBuilder().addComponents(roleSelect);
+                const rowComponent = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`rolereq_approve_${interaction.user.id}`)
+                            .setLabel('Approve')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`rolereq_deny_${interaction.user.id}`)
+                            .setLabel('Deny')
+                            .setStyle(ButtonStyle.Danger)
+                    );
 
                 try {
                     await logChannel.send({ content: `<@&${row.rolereq_support_role_id}> | New Role Request`, embeds: [embed], components: [rowComponent] });
@@ -404,6 +447,48 @@ client.on('interactionCreate', async interaction => {
                     await interaction.reply({ content: 'Failed to post your LOA request.', ephemeral: true });
                 }
             });
+        } else if (interaction.customId.startsWith('rolereqdenymodal_')) {
+            const targetUserId = interaction.customId.replace('rolereqdenymodal_', '');
+            const denyReason = interaction.fields.getTextInputValue('deny_reason');
+
+            const statusText = 'Denied';
+            const newColor = 'Red';
+
+            try {
+                const originalEmbed = interaction.message.embeds[0];
+                const newEmbed = EmbedBuilder.from(originalEmbed)
+                    .setColor(newColor)
+                    .setTitle(`Role Request - ${statusText}`);
+
+                if (denyReason) {
+                    newEmbed.addFields({ name: 'Denial Reason', value: denyReason });
+                }
+
+                const rowComponent = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('dummy_btn')
+                            .setLabel(statusText)
+                            .setStyle(ButtonStyle.Danger)
+                            .setDisabled(true)
+                    );
+
+                await interaction.update({ embeds: [newEmbed], components: [rowComponent] });
+
+                const targetUser = await interaction.client.users.fetch(targetUserId);
+                if (targetUser) {
+                    let dmMsg = `Your Role Request in **${interaction.guild.name}** has been **${statusText}**.`;
+                    if (denyReason) {
+                        dmMsg += `\n**Reason:** ${denyReason}`;
+                    }
+                    await targetUser.send(dmMsg).catch(() => {});
+                }
+            } catch (error) {
+                console.error('Failed to process Role Request denial modal:', error);
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ content: 'Failed to process denial.', ephemeral: true });
+                }
+            }
         } else if (interaction.customId.startsWith('loadenymodal_')) {
             const targetUserId = interaction.customId.replace('loadenymodal_', '');
             const denyReason = interaction.fields.getTextInputValue('deny_reason');
