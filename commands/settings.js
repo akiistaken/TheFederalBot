@@ -88,7 +88,11 @@ module.exports = {
                 .addRoleOption(option => 
                     option.setName('role')
                         .setDescription('The role to ping when an event starts (optional)')
-                        .setRequired(false))),
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('testevent')
+                .setDescription('Manually trigger an event to test the notification system')),
     
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -152,6 +156,15 @@ module.exports = {
                 if (err) return interaction.reply({ content: 'Failed to update event channel.', ephemeral: true });
                 await interaction.reply(`Event notifications channel updated to ${channel}${role ? ` and will ping ${role}` : ''}.`);
             });
+        } else if (subcommand === 'testevent') {
+            await interaction.reply({ content: 'Simulating event trigger...', ephemeral: true });
+            const { triggerEvent } = require('../eventMonitor');
+            const dummyEvent = {
+                name: '🧪 Test Event',
+                time: '00:00',
+                description: 'This is a manual test of the event notification system!'
+            };
+            await triggerEvent(interaction.client, dummyEvent);
         }
     },
 };
