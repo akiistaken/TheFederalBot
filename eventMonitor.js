@@ -8,8 +8,9 @@ async function triggerEvent(client, event) {
         if (err || !rows) return;
 
         const now = new Date();
-        const nyTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
-        const discordTime = `<t:${Math.floor(now.getTime() / 1000)}:t>`;
+        const eventTime = new Date(now.getTime() + 13 * 60 * 1000);
+        const nyTime = eventTime.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
+        const discordTime = `<t:${Math.floor(eventTime.getTime() / 1000)}:t>`;
 
         const embed = new EmbedBuilder()
             .setTitle(`⏰ Event: ${event.name}`)
@@ -45,15 +46,41 @@ async function triggerEvent(client, event) {
                         const messageOptions = { embeds: [embed], components: [rowComponent] };
                         if (messageContent) messageOptions.content = messageContent;
 
-                        await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${row.event_channel_id}:`, err));
+                        const sentMessage = await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${row.event_channel_id}:`, err));
+                        
+                        if (sentMessage) {
+                            setTimeout(async () => {
+                                try {
+                                    const fetchedMsg = await channel.messages.fetch(sentMessage.id);
+                                    if (fetchedMsg) {
+                                        const disabledRow = new ActionRowBuilder()
+                                            .addComponents(
+                                                new ButtonBuilder()
+                                                    .setCustomId('event_join_locked')
+                                                    .setLabel('Join Roster (Locked)')
+                                                    .setStyle(ButtonStyle.Secondary)
+                                                    .setDisabled(true),
+                                                new ButtonBuilder()
+                                                    .setCustomId('event_leave_locked')
+                                                    .setLabel('Leave Roster (Locked)')
+                                                    .setStyle(ButtonStyle.Secondary)
+                                                    .setDisabled(true)
+                                            );
+                                        await fetchedMsg.edit({ components: [disabledRow] });
+                                    }
+                                } catch (e) {
+                                    console.error(`Failed to lock roster for message ${sentMessage.id}:`, e);
+                                }
+                            }, 11 * 60 * 1000); // Lock after 11 minutes
+                        }
                     }
 
                     if (row.event_log_channel_id) {
                         const logChannel = guild.channels.cache.get(row.event_log_channel_id);
                         if (logChannel) {
-                            const nyDate = now.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
-                            const nyTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
-                            const threadName = `${event.name} ${nyDate} ${nyTime}`;
+                            const nyDate = eventTime.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+                            const nyTimeString = eventTime.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
+                            const threadName = `${event.name} ${nyDate} ${nyTimeString}`;
                             await logChannel.threads.create({
                                 name: threadName,
                                 autoArchiveDuration: 1440,
@@ -74,9 +101,11 @@ function startEventMonitor(client) {
     
     // Check every minute
     setInterval(() => {
+        // Check 13 minutes into the future
         const now = new Date();
-        const currentHour = now.getUTCHours().toString().padStart(2, '0');
-        const currentMinute = now.getUTCMinutes().toString().padStart(2, '0');
+        const futureTime = new Date(now.getTime() + 13 * 60 * 1000);
+        const currentHour = futureTime.getUTCHours().toString().padStart(2, '0');
+        const currentMinute = futureTime.getUTCMinutes().toString().padStart(2, '0');
         const currentTime = `${currentHour}:${currentMinute}`;
 
         let events = [];
