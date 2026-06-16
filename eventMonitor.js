@@ -7,9 +7,15 @@ async function triggerEvent(client, event) {
     db.all('SELECT guild_id, event_channel_id, event_role_id, event_log_channel_id FROM settings WHERE event_channel_id IS NOT NULL', [], async (err, rows) => {
         if (err || !rows) return;
 
+        const now = new Date();
+        const nyTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
+        const istTime = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true, hour: "numeric", minute: "2-digit" });
+        const utcTime = now.toLocaleString("en-US", { timeZone: "UTC", hour12: false, hour: "2-digit", minute: "2-digit" });
+        const discordTime = `<t:${Math.floor(now.getTime() / 1000)}:t>`;
+
         const embed = new EmbedBuilder()
             .setTitle(`⏰ Event: ${event.name}`)
-            .setDescription(event.description || `The event **${event.name}** is starting now!`)
+            .setDescription(`${event.description || `The event **${event.name}** is starting now!`}\n\n🕒 **Time:** ${nyTime} NY (${istTime} IST / ${utcTime} UTC)\n🌍 **Your Local Time:** ${discordTime}`)
             .setColor('Gold')
             .addFields({ name: 'Roster (0)', value: '*No one has joined yet.*' })
             .setTimestamp();
@@ -26,7 +32,7 @@ async function triggerEvent(client, event) {
                     .setStyle(ButtonStyle.Danger)
             );
 
-        const now = new Date();
+        // now is already defined above
         const currentHour = now.getUTCHours().toString().padStart(2, '0');
         const currentMinute = now.getUTCMinutes().toString().padStart(2, '0');
         const currentTime = `${currentHour}:${currentMinute}`;
