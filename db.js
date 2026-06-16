@@ -40,6 +40,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
             db.run(`ALTER TABLE settings ADD COLUMN rolereq_support_role_id TEXT`, () => {});
             db.run(`ALTER TABLE settings ADD COLUMN event_channel_id TEXT`, () => {});
             db.run(`ALTER TABLE settings ADD COLUMN event_role_id TEXT`, () => {});
+            db.run(`ALTER TABLE settings ADD COLUMN event_log_channel_id TEXT`, () => {});
         });
 
         // Create Streamers Table

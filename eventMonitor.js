@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 async function triggerEvent(client, event) {
-    db.all('SELECT guild_id, event_channel_id, event_role_id, log_channel_id FROM settings WHERE event_channel_id IS NOT NULL', [], async (err, rows) => {
+    db.all('SELECT guild_id, event_channel_id, event_role_id, event_log_channel_id FROM settings WHERE event_channel_id IS NOT NULL', [], async (err, rows) => {
         if (err || !rows) return;
 
         const embed = new EmbedBuilder()
@@ -44,8 +44,8 @@ async function triggerEvent(client, event) {
                         await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${row.event_channel_id}:`, err));
                     }
 
-                    if (row.log_channel_id) {
-                        const logChannel = guild.channels.cache.get(row.log_channel_id);
+                    if (row.event_log_channel_id) {
+                        const logChannel = guild.channels.cache.get(row.event_log_channel_id);
                         if (logChannel) {
                             const dateStr = now.toISOString().split('T')[0];
                             const threadName = `${event.name} ${dateStr} ${currentTime}`;
@@ -53,7 +53,7 @@ async function triggerEvent(client, event) {
                                 name: threadName,
                                 autoArchiveDuration: 1440,
                                 reason: 'Event proof thread'
-                            }).catch(err => console.error(`Failed to create thread in log channel ${row.log_channel_id}:`, err));
+                            }).catch(err => console.error(`Failed to create thread in log channel ${row.event_log_channel_id}:`, err));
                         }
                     }
                 }

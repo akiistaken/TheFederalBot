@@ -88,6 +88,11 @@ module.exports = {
                 .addRoleOption(option => 
                     option.setName('role')
                         .setDescription('The role to ping when an event starts (optional)')
+                        .setRequired(false))
+                .addChannelOption(option =>
+                    option.setName('threadchannel')
+                        .setDescription('The channel where proof threads will be created (optional)')
+                        .addChannelTypes(ChannelType.GuildText)
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
@@ -151,10 +156,12 @@ module.exports = {
         } else if (subcommand === 'eventchannel') {
             const channel = interaction.options.getChannel('channel');
             const role = interaction.options.getRole('role');
+            const threadChannel = interaction.options.getChannel('threadchannel');
             const roleId = role ? role.id : null;
-            db.run('UPDATE settings SET event_channel_id = ?, event_role_id = ? WHERE guild_id = ?', [channel.id, roleId, guildId], async (err) => {
+            const threadChannelId = threadChannel ? threadChannel.id : null;
+            db.run('UPDATE settings SET event_channel_id = ?, event_role_id = ?, event_log_channel_id = ? WHERE guild_id = ?', [channel.id, roleId, threadChannelId, guildId], async (err) => {
                 if (err) return interaction.reply({ content: 'Failed to update event channel.', ephemeral: true });
-                await interaction.reply(`Event notifications channel updated to ${channel}${role ? ` and will ping ${role}` : ''}.`);
+                await interaction.reply(`Event notifications channel updated to ${channel}${role ? `, pinging ${role}` : ''}${threadChannel ? `, creating threads in ${threadChannel}` : ''}.`);
             });
         } else if (subcommand === 'testevent') {
             await interaction.reply({ content: 'Simulating event trigger...', ephemeral: true });
