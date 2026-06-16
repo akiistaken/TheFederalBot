@@ -9,13 +9,11 @@ async function triggerEvent(client, event) {
 
         const now = new Date();
         const nyTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
-        const istTime = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: true, hour: "numeric", minute: "2-digit" });
-        const utcTime = now.toLocaleString("en-US", { timeZone: "UTC", hour12: false, hour: "2-digit", minute: "2-digit" });
         const discordTime = `<t:${Math.floor(now.getTime() / 1000)}:t>`;
 
         const embed = new EmbedBuilder()
             .setTitle(`⏰ Event: ${event.name}`)
-            .setDescription(`${event.description || `The event **${event.name}** is starting now!`}\n\n🕒 **Time:** ${nyTime} IC (${istTime} IST / ${utcTime} UTC)\n🌍 **Your Local Time:** ${discordTime}`)
+            .setDescription(`${event.description || `The event **${event.name}** is starting now!`}\n\n🕒 **Time:** ${nyTime} IC\n🌍 **Your Local Time:** ${discordTime}`)
             .setColor('Gold')
             .addFields({ name: 'Roster (0)', value: '*No one has joined yet.*' })
             .setTimestamp();
