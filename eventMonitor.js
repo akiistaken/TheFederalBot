@@ -1,0 +1,89 @@
+const db = require('./db');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+function startEventMonitor(client) {
+    console.log('Started Event Monitor...');
+    
+    // Check every minute
+    setInterval(() => {
+        const now = new Date();
+        const currentHour = now.getUTCHours().toString().padStart(2, '0');
+        const currentMinute = now.getUTCMinutes().toString().padStart(2, '0');
+        const currentTime = `${currentHour}:${currentMinute}`;
+
+        let events = [];
+        try {
+            const eventsPath = path.join(__dirname, 'events.json');
+            if (fs.existsSync(eventsPath)) {
+                events = JSON.parse(fs.readFileSync(eventsPath, 'utf-8'));
+            }
+        } catch (e) {
+            console.error('Failed to read events.json:', e);
+            return;
+        }
+
+        const triggeringEvents = events.filter(e => e.time === currentTime);
+
+        if (triggeringEvents.length > 0) {
+            db.all('SELECT guild_id, event_channel_id, event_role_id, log_channel_id FROM settings WHERE event_channel_id IS NOT NULL', [], async (err, rows) => {
+                if (err || !rows) return;
+
+                for (const event of triggeringEvents) {
+                    const embed = new EmbedBuilder()
+                        .setTitle(`⏰ Event: ${event.name}`)
+                        .setDescription(event.description || `The event **${event.name}** is starting now!`)
+                        .setColor('Gold')
+                        .addFields({ name: 'Roster (0)', value: '*No one has joined yet.*' })
+                        .setTimestamp();
+
+                    const rowComponent = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('event_join')
+                                .setLabel('Join Roster')
+                                .setStyle(ButtonStyle.Success),
+                            new ButtonBuilder()
+                                .setCustomId('event_leave')
+                                .setLabel('Leave Roster')
+                                .setStyle(ButtonStyle.Danger)
+                        );
+
+                    for (const row of rows) {
+                        try {
+                            const guild = client.guilds.cache.get(row.guild_id);
+                            if (guild) {
+                                const channel = guild.channels.cache.get(row.event_channel_id);
+                                if (channel) {
+                                    const messageContent = row.event_role_id ? `<@&${row.event_role_id}>` : null;
+                                    const messageOptions = { embeds: [embed], components: [rowComponent] };
+                                    if (messageContent) messageOptions.content = messageContent;
+
+                                    await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${row.event_channel_id}:`, err));
+                                }
+
+                                if (row.log_channel_id) {
+                                    const logChannel = guild.channels.cache.get(row.log_channel_id);
+                                    if (logChannel) {
+                                        const dateStr = now.toISOString().split('T')[0];
+                                        const threadName = `${event.name} ${dateStr} ${currentTime}`;
+                                        await logChannel.threads.create({
+                                            name: threadName,
+                                            autoArchiveDuration: 1440,
+                                            reason: 'Event proof thread'
+                                        }).catch(err => console.error(`Failed to create thread in log channel ${row.log_channel_id}:`, err));
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.error(`Failed to send event to guild ${row.guild_id}:`, e);
+                        }
+                    }
+                }
+            });
+        }
+    }, 60 * 1000);
+}
+
+module.exports = { startEventMonitor };

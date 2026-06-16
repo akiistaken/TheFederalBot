@@ -34,6 +34,7 @@ for (const file of commandFiles) {
 }
 
 const { startStreamMonitor } = require('./streamMonitor');
+const { startEventMonitor } = require('./eventMonitor');
 
 // Temporary cache for role request confirmations
 const pendingRoleGrants = new Map();
@@ -41,6 +42,7 @@ const pendingRoleGrants = new Map();
 client.once('ready', async () => {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     startStreamMonitor(client);
+    startEventMonitor(client);
     
     // Force instant command registration in all servers to bypass global cache
     try {
@@ -386,6 +388,38 @@ client.on('interactionCreate', async interaction => {
             });
 
             await interaction.editReply({ content: 'Here is the transcript for this ticket:', files: [attachment] });
+        } else if (interaction.customId === 'event_join' || interaction.customId === 'event_leave') {
+            const isJoin = interaction.customId === 'event_join';
+            const embed = interaction.message.embeds[0];
+            if (!embed) return interaction.reply({ content: 'Message error.', ephemeral: true });
+
+            const rosterField = embed.fields.find(f => f.name.startsWith('Roster'));
+            if (!rosterField) return interaction.reply({ content: 'This event has no roster.', ephemeral: true });
+
+            let participants = [];
+            if (rosterField.value !== '*No one has joined yet.*') {
+                participants = rosterField.value.split('\n').filter(p => p.trim() !== '');
+            }
+
+            const userMention = `<@${interaction.user.id}>`;
+            const isInRoster = participants.includes(userMention);
+
+            if (isJoin) {
+                if (isInRoster) return interaction.reply({ content: 'You are already on the roster!', ephemeral: true });
+                participants.push(userMention);
+            } else {
+                if (!isInRoster) return interaction.reply({ content: 'You are not on the roster!', ephemeral: true });
+                participants = participants.filter(p => p !== userMention);
+            }
+
+            const newCount = participants.length;
+            const newRosterValue = newCount > 0 ? participants.join('\n') : '*No one has joined yet.*';
+
+            const newEmbed = EmbedBuilder.from(embed);
+            const fieldIndex = newEmbed.data.fields.findIndex(f => f.name.startsWith('Roster'));
+            newEmbed.data.fields[fieldIndex] = { name: `Roster (${newCount})`, value: newRosterValue, inline: false };
+
+            await interaction.update({ embeds: [newEmbed] });
         }
     } else if (interaction.isModalSubmit()) {
         if (interaction.customId === 'rolerequestmodal') {

@@ -75,7 +75,20 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('testwelcome')
-                .setDescription('Simulate a user joining the server to test your welcome message')),
+                .setDescription('Simulate a user joining the server to test your welcome message'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('eventchannel')
+                .setDescription('Set the channel for global event notifications')
+                .addChannelOption(option => 
+                    option.setName('channel')
+                        .setDescription('The channel to send event notifications to')
+                        .addChannelTypes(ChannelType.GuildText)
+                        .setRequired(true))
+                .addRoleOption(option => 
+                    option.setName('role')
+                        .setDescription('The role to ping when an event starts (optional)')
+                        .setRequired(false))),
     
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -131,6 +144,14 @@ module.exports = {
         } else if (subcommand === 'testwelcome') {
             await interaction.reply({ content: 'Simulating welcome message...', ephemeral: true });
             interaction.client.emit('guildMemberAdd', interaction.member);
+        } else if (subcommand === 'eventchannel') {
+            const channel = interaction.options.getChannel('channel');
+            const role = interaction.options.getRole('role');
+            const roleId = role ? role.id : null;
+            db.run('UPDATE settings SET event_channel_id = ?, event_role_id = ? WHERE guild_id = ?', [channel.id, roleId, guildId], async (err) => {
+                if (err) return interaction.reply({ content: 'Failed to update event channel.', ephemeral: true });
+                await interaction.reply(`Event notifications channel updated to ${channel}${role ? ` and will ping ${role}` : ''}.`);
+            });
         }
     },
 };
