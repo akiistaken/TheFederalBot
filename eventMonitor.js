@@ -47,8 +47,9 @@ async function triggerEvent(client, event) {
                     if (row.event_log_channel_id) {
                         const logChannel = guild.channels.cache.get(row.event_log_channel_id);
                         if (logChannel) {
-                            const dateStr = now.toISOString().split('T')[0];
-                            const threadName = `${event.name} ${dateStr} ${currentTime}`;
+                            const nyDate = now.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+                            const nyTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
+                            const threadName = `${event.name} ${nyDate} ${nyTime} NY`;
                             await logChannel.threads.create({
                                 name: threadName,
                                 autoArchiveDuration: 1440,
