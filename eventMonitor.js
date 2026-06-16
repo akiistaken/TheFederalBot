@@ -15,7 +15,7 @@ async function triggerEvent(client, event) {
 
         const embed = new EmbedBuilder()
             .setTitle(`⏰ Event: ${event.name}`)
-            .setDescription(`${event.description || `The event **${event.name}** is starting now!`}\n\n🕒 **Time:** ${nyTime} NY (${istTime} IST / ${utcTime} UTC)\n🌍 **Your Local Time:** ${discordTime}`)
+            .setDescription(`${event.description || `The event **${event.name}** is starting now!`}\n\n🕒 **Time:** ${nyTime} IC (${istTime} IST / ${utcTime} UTC)\n🌍 **Your Local Time:** ${discordTime}`)
             .setColor('Gold')
             .addFields({ name: 'Roster (0)', value: '*No one has joined yet.*' })
             .setTimestamp();
