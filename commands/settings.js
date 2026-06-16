@@ -97,7 +97,11 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('testevent')
-                .setDescription('Manually trigger an event to test the notification system')),
+                .setDescription('Manually trigger an event to test the notification system')
+                .addStringOption(option => 
+                    option.setName('eventname')
+                        .setDescription('Name of the event from the list to test (optional)')
+                        .setRequired(false))),
     
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -165,13 +169,36 @@ module.exports = {
             });
         } else if (subcommand === 'testevent') {
             await interaction.reply({ content: 'Simulating event trigger...', ephemeral: true });
+            const eventName = interaction.options.getString('eventname');
             const { triggerEvent } = require('../eventMonitor');
-            const dummyEvent = {
+            const fs = require('fs');
+            const path = require('path');
+            
+            let testEventToFire = {
                 name: '🧪 Test Event',
                 time: '00:00',
                 description: 'This is a manual test of the event notification system!'
             };
-            await triggerEvent(interaction.client, dummyEvent);
+
+            try {
+                const eventsPath = path.join(__dirname, '../events.json');
+                if (fs.existsSync(eventsPath)) {
+                    const events = JSON.parse(fs.readFileSync(eventsPath, 'utf-8'));
+                    if (events.length > 0) {
+                        if (eventName) {
+                            const found = events.find(e => e.name.toLowerCase().includes(eventName.toLowerCase()));
+                            if (found) testEventToFire = found;
+                            else testEventToFire = events[0];
+                        } else {
+                            testEventToFire = events[0];
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to read events.json for testevent:', err);
+            }
+
+            await triggerEvent(interaction.client, testEventToFire);
         }
     },
 };
