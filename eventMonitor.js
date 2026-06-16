@@ -49,7 +49,7 @@ async function triggerEvent(client, event) {
                         if (logChannel) {
                             const nyDate = now.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
                             const nyTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
-                            const threadName = `${event.name} ${nyDate} ${nyTime} NY`;
+                            const threadName = `${event.name} ${nyDate} ${nyTime}`;
                             await logChannel.threads.create({
                                 name: threadName,
                                 autoArchiveDuration: 1440,
