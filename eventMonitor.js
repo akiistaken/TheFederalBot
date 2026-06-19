@@ -81,11 +81,21 @@ async function triggerEvent(client, event) {
                             const nyDate = eventTime.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
                             const nyTimeString = eventTime.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
                             const threadName = `${event.name} ${nyDate} ${nyTimeString}`;
-                            await logChannel.threads.create({
+                            const thread = await logChannel.threads.create({
                                 name: threadName,
                                 autoArchiveDuration: 1440,
                                 reason: 'Event proof thread'
                             }).catch(err => console.error(`Failed to create thread in log channel ${row.event_log_channel_id}:`, err));
+
+                            if (thread) {
+                                const threadRow = new ActionRowBuilder().addComponents(
+                                    new ButtonBuilder()
+                                        .setCustomId('eventproofbtn')
+                                        .setLabel('Submit Proof')
+                                        .setStyle(ButtonStyle.Primary)
+                                );
+                                await thread.send({ content: 'Ready to submit proof for this event? Click the button below!', components: [threadRow] });
+                            }
                         }
                     }
                 }

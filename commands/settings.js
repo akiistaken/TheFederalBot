@@ -101,7 +101,20 @@ module.exports = {
                 .addStringOption(option => 
                     option.setName('eventname')
                         .setDescription('Name of the event from the list to test (optional)')
-                        .setRequired(false))),
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('activitychannel')
+                .setDescription('Set the channel and role for the activity leaderboard system')
+                .addChannelOption(option => 
+                    option.setName('channel')
+                        .setDescription('The channel to send activity submissions to')
+                        .addChannelTypes(ChannelType.GuildText)
+                        .setRequired(true))
+                .addRoleOption(option => 
+                    option.setName('role')
+                        .setDescription('The high command role that can approve submissions')
+                        .setRequired(true))),
     
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -199,6 +212,13 @@ module.exports = {
             }
 
             await triggerEvent(interaction.client, testEventToFire);
+        } else if (subcommand === 'activitychannel') {
+            const channel = interaction.options.getChannel('channel');
+            const role = interaction.options.getRole('role');
+            db.run('UPDATE settings SET activity_channel_id = ?, activity_support_role_id = ? WHERE guild_id = ?', [channel.id, role.id, guildId], async (err) => {
+                if (err) return interaction.reply({ content: 'Failed to update activity settings.', ephemeral: true });
+                await interaction.reply(`Activity submissions will now be sent to ${channel} and require approval from ${role}.`);
+            });
         }
     },
 };
