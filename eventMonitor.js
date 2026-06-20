@@ -117,6 +117,7 @@ async function triggerEvent(client, event, specificGuildId = null, isNow = false
                             }, 11 * 60 * 1000); // Lock after 11 minutes
                         }
 
+                    }
                 }
             } catch (e) {
                 console.error(`Failed to send event to guild ${row.guild_id}:`, e);
