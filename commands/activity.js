@@ -35,7 +35,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('view')
-                .setDescription('View your current points or someone else\\'s')
+                .setDescription("View your current points or someone else's")
                 .addUserOption(option => 
                     option.setName('target')
                         .setDescription('The user to view points for')
