@@ -39,73 +39,10 @@ const { startEventMonitor } = require('./eventMonitor');
 // Temporary cache for role request confirmations
 const pendingRoleGrants = new Map();
 
-let lastActivityReset = null;
-
-function startActivityResetMonitor(client) {
-    setInterval(() => {
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'America/New_York',
-            weekday: 'short',
-            hourCycle: 'h23',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        const parts = formatter.formatToParts(now);
-        const day = parts.find(p => p.type === 'weekday').value;
-        const hour = parts.find(p => p.type === 'hour').value;
-        const minute = parts.find(p => p.type === 'minute').value;
-
-        if (day === 'Sun' && hour === '23' && minute === '59') {
-            const dateStr = now.toDateString();
-            if (lastActivityReset === dateStr) return;
-            lastActivityReset = dateStr;
-
-            db.all('SELECT guild_id, activity_channel_id FROM settings WHERE activity_channel_id IS NOT NULL', [], (err, rows) => {
-                if (err || !rows) return;
-
-                rows.forEach(row => {
-                    const guild = client.guilds.cache.get(row.guild_id);
-                    if (!guild) return;
-
-                    const channel = guild.channels.cache.get(row.activity_channel_id);
-                    if (!channel) return;
-
-                    db.all('SELECT user_id, SUM(points) as total_points FROM activity_logs WHERE guild_id = ? AND status = ? GROUP BY user_id ORDER BY total_points DESC LIMIT 10', 
-                        [row.guild_id, 'approved'], async (err2, topRows) => {
-                            if (err2) return;
-
-                            const embed = new EmbedBuilder()
-                                .setTitle('🏆 Weekly Activity Leaderboard Winners!')
-                                .setColor('Gold')
-                                .setTimestamp();
-
-                            if (!topRows || topRows.length === 0) {
-                                embed.setDescription('No approved activities this week.');
-                            } else {
-                                let text = 'Here are the top performers for this week!\n\n';
-                                topRows.forEach((r, i) => {
-                                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏅';
-                                    text += `${medal} **#${i + 1}** <@${r.user_id}> - **${r.total_points} pts**\n`;
-                                });
-                                embed.setDescription(text);
-                            }
-
-                            await channel.send({ content: '@everyone', embeds: [embed] }).catch(() => {});
-
-                            db.run('UPDATE activity_logs SET status = ? WHERE guild_id = ? AND status = ?', ['archived', row.guild_id, 'approved']);
-                        });
-                });
-            });
-        }
-    }, 60 * 1000);
-}
-
 client.once('ready', async () => {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     startStreamMonitor(client);
     startEventMonitor(client);
-    startActivityResetMonitor(client);
     
     // Force instant command registration in all servers to bypass global cache
     try {
@@ -388,103 +325,12 @@ client.on('interactionCreate', async interaction => {
                     console.error('Failed to DM user about LOA status:', error);
                 }
             });
-        } else if (interaction.customId.startsWith('activity_approve_') || interaction.customId.startsWith('activity_deny_')) {
-            const isApprove = interaction.customId.startsWith('activity_approve_');
-            const logId = interaction.customId.replace(isApprove ? 'activity_approve_' : 'activity_deny_', '');
-
-            db.get('SELECT activity_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
-                if (err || !row || !row.activity_support_role_id) return interaction.reply({ content: 'Activity system error.', ephemeral: true });
-
-                const hasSupportRole = interaction.member.roles.cache.has(row.activity_support_role_id);
-                const hasAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
-
-                if (!hasSupportRole && !hasAdmin) {
-                    return interaction.reply({ content: 'Only high command can review activity submissions.', ephemeral: true });
-                }
-
-                const newStatus = isApprove ? 'approved' : 'denied';
-
-                db.run('UPDATE activity_logs SET status = ? WHERE id = ?', [newStatus, logId], async (updateErr) => {
-                    if (updateErr) return interaction.reply({ content: 'Failed to update database.', ephemeral: true });
-
-                    const statusText = isApprove ? 'Approved' : 'Denied';
-                    const newColor = isApprove ? 'Green' : 'Red';
-
-                    const originalEmbed = interaction.message.embeds[0];
-                    const newEmbed = EmbedBuilder.from(originalEmbed)
-                        .setColor(newColor)
-                        .setTitle(`Activity Submission - ${statusText}`);
-
-                    const rowComponent = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId('dummy_btn')
-                                .setLabel(statusText)
-                                .setStyle(isApprove ? ButtonStyle.Success : ButtonStyle.Danger)
-                                .setDisabled(true)
-                        );
-
-                    await interaction.update({ embeds: [newEmbed], components: [rowComponent] });
-
-                    db.get('SELECT user_id, activity_type, points FROM activity_logs WHERE id = ?', [logId], async (err2, logRow) => {
-                        if (!err2 && logRow) {
-                            try {
-                                const targetUser = await interaction.client.users.fetch(logRow.user_id);
-                                if (targetUser) {
-                                    await targetUser.send(`Your activity submission for **${logRow.activity_type}** (${logRow.points} pts) in **${interaction.guild.name}** has been **${statusText}**.`);
-                                }
-                            } catch (e) {}
-                        }
-                    });
-                });
-            });
-        } else if (interaction.customId.startsWith('activity_edit_')) {
-            const logId = interaction.customId.replace('activity_edit_', '');
-            
-            db.get('SELECT activity_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {
-                if (err || !row || !row.activity_support_role_id) return interaction.reply({ content: 'Activity system error.', ephemeral: true });
-
-                const hasSupportRole = interaction.member.roles.cache.has(row.activity_support_role_id);
-                const hasAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
-
-                if (!hasSupportRole && !hasAdmin) {
-                    return interaction.reply({ content: 'Only high command can edit activity submissions.', ephemeral: true });
-                }
-
-                db.get('SELECT activity_type, points FROM activity_logs WHERE id = ?', [logId], async (err2, logRow) => {
-                    if (err2 || !logRow) return interaction.reply({ content: 'Log not found.', ephemeral: true });
-
-                    const modal = new ModalBuilder()
-                        .setCustomId(`activityeditmodal_${logId}`)
-                        .setTitle('Edit Activity Points');
-
-                    const typeInput = new TextInputBuilder()
-                        .setCustomId('edit_type')
-                        .setLabel('Activity Type')
-                        .setStyle(TextInputStyle.Short)
-                        .setValue(logRow.activity_type)
-                        .setRequired(true);
-
-                    const pointsInput = new TextInputBuilder()
-                        .setCustomId('edit_points')
-                        .setLabel('Points Awarded')
-                        .setStyle(TextInputStyle.Short)
-                        .setValue(logRow.points.toString())
-                        .setRequired(true);
-
-                    modal.addComponents(
-                        new ActionRowBuilder().addComponents(typeInput),
-                        new ActionRowBuilder().addComponents(pointsInput)
-                    );
-                    await interaction.showModal(modal);
-                });
-            });
-        } else if (interaction.customId === 'eventproofbtn') {
-            const command = interaction.guild.commands.cache.find(c => c.name === 'activity');
+        } else if (interaction.customId === 'cartel_submit_proof') {
+            const command = interaction.guild.commands.cache.find(c => c.name === 'cartelproof');
             if (command) {
-                await interaction.reply({ content: `Please click here to submit your proof: </activity submit:${command.id}>`, ephemeral: true });
+                await interaction.reply({ content: `Please click here to submit your proof: </cartelproof:${command.id}>`, ephemeral: true });
             } else {
-                await interaction.reply({ content: `Please type \`/activity submit\` to submit your proof!`, ephemeral: true });
+                await interaction.reply({ content: `Please type \`/cartelproof\` to submit your proof!`, ephemeral: true });
             }
         } else if (interaction.customId === 'close_ticket') {
             db.get('SELECT ticket_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {

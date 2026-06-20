@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 async function triggerEvent(client, event) {
-    db.all('SELECT guild_id, event_channel_id, event_role_id, event_log_channel_id FROM settings WHERE event_channel_id IS NOT NULL', [], async (err, rows) => {
+    db.all('SELECT guild_id, event_channel_id, event_role_id, event_log_channel_id, cartel_channel_id, cartel_role_id, cartel_log_channel_id FROM settings', [], async (err, rows) => {
         if (err || !rows) return;
 
         const now = new Date();
@@ -19,6 +19,8 @@ async function triggerEvent(client, event) {
             .addFields({ name: 'Roster (0)', value: '*No one has joined yet.*' })
             .setTimestamp();
 
+        const isCartel = event.name.toLowerCase().includes('cartel');
+
         const rowComponent = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
@@ -31,6 +33,15 @@ async function triggerEvent(client, event) {
                     .setStyle(ButtonStyle.Danger)
             );
 
+        if (isCartel) {
+            rowComponent.addComponents(
+                new ButtonBuilder()
+                    .setCustomId('cartel_submit_proof')
+                    .setLabel('Submit Proof')
+                    .setStyle(ButtonStyle.Primary)
+            );
+        }
+
         // now is already defined above
         const currentHour = now.getUTCHours().toString().padStart(2, '0');
         const currentMinute = now.getUTCMinutes().toString().padStart(2, '0');
@@ -40,13 +51,18 @@ async function triggerEvent(client, event) {
             try {
                 const guild = client.guilds.cache.get(row.guild_id);
                 if (guild) {
-                    const channel = guild.channels.cache.get(row.event_channel_id);
+                    const targetChannelId = isCartel ? row.cartel_channel_id : row.event_channel_id;
+                    const targetRoleId = isCartel ? row.cartel_role_id : row.event_role_id;
+                    
+                    if (!targetChannelId) continue;
+                    
+                    const channel = guild.channels.cache.get(targetChannelId);
                     if (channel) {
-                        const messageContent = row.event_role_id ? `<@&${row.event_role_id}>` : null;
+                        const messageContent = targetRoleId ? `<@&${targetRoleId}>` : null;
                         const messageOptions = { embeds: [embed], components: [rowComponent] };
                         if (messageContent) messageOptions.content = messageContent;
 
-                        const sentMessage = await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${row.event_channel_id}:`, err));
+                        const sentMessage = await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${targetChannelId}:`, err));
                         
                         if (sentMessage) {
                             setTimeout(async () => {
@@ -75,7 +91,7 @@ async function triggerEvent(client, event) {
                         }
                     }
 
-                    if (row.event_log_channel_id) {
+                    if (!isCartel && row.event_log_channel_id) {
                         const logChannel = guild.channels.cache.get(row.event_log_channel_id);
                         if (logChannel) {
                             const nyDate = eventTime.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -88,13 +104,7 @@ async function triggerEvent(client, event) {
                             }).catch(err => console.error(`Failed to create thread in log channel ${row.event_log_channel_id}:`, err));
 
                             if (thread) {
-                                const threadRow = new ActionRowBuilder().addComponents(
-                                    new ButtonBuilder()
-                                        .setCustomId('eventproofbtn')
-                                        .setLabel('Submit Proof')
-                                        .setStyle(ButtonStyle.Primary)
-                                );
-                                await thread.send({ content: 'Ready to submit proof for this event? Click the button below!', components: [threadRow] });
+                                await thread.send({ content: 'Ready to submit proof for this event? Post it here!' });
                             }
                         }
                     }

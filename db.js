@@ -41,20 +41,10 @@ const db = new sqlite3.Database(dbPath, (err) => {
             db.run(`ALTER TABLE settings ADD COLUMN event_channel_id TEXT`, () => {});
             db.run(`ALTER TABLE settings ADD COLUMN event_role_id TEXT`, () => {});
             db.run(`ALTER TABLE settings ADD COLUMN event_log_channel_id TEXT`, () => {});
-            db.run(`ALTER TABLE settings ADD COLUMN activity_channel_id TEXT`, () => {});
-            db.run(`ALTER TABLE settings ADD COLUMN activity_support_role_id TEXT`, () => {});
+            db.run(`ALTER TABLE settings ADD COLUMN cartel_channel_id TEXT`, () => {});
+            db.run(`ALTER TABLE settings ADD COLUMN cartel_role_id TEXT`, () => {});
+            db.run(`ALTER TABLE settings ADD COLUMN cartel_log_channel_id TEXT`, () => {});
         });
-
-        // Create Activity Logs Table
-        db.run(`CREATE TABLE IF NOT EXISTS activity_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT NOT NULL,
-            guild_id TEXT NOT NULL,
-            activity_type TEXT NOT NULL,
-            points INTEGER NOT NULL,
-            status TEXT DEFAULT 'pending',
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
 
         // Create Streamers Table
         db.run(`CREATE TABLE IF NOT EXISTS streamers (

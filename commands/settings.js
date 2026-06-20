@@ -104,17 +104,22 @@ module.exports = {
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
-                .setName('activitychannel')
-                .setDescription('Set the channel and role for the activity leaderboard system')
+                .setName('cartelchannel')
+                .setDescription('Set the channel for Cartel War notifications')
                 .addChannelOption(option => 
                     option.setName('channel')
-                        .setDescription('The channel to send activity submissions to')
+                        .setDescription('The channel to send Cartel War notifications to')
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true))
                 .addRoleOption(option => 
                     option.setName('role')
-                        .setDescription('The high command role that can approve submissions')
-                        .setRequired(true))),
+                        .setDescription('The role to ping when a Cartel War starts (optional)')
+                        .setRequired(false))
+                .addChannelOption(option =>
+                    option.setName('threadchannel')
+                        .setDescription('The channel where Cartel proof threads will be created (optional)')
+                        .addChannelTypes(ChannelType.GuildText)
+                        .setRequired(false))),
     
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -212,12 +217,15 @@ module.exports = {
             }
 
             await triggerEvent(interaction.client, testEventToFire);
-        } else if (subcommand === 'activitychannel') {
+        } else if (subcommand === 'cartelchannel') {
             const channel = interaction.options.getChannel('channel');
             const role = interaction.options.getRole('role');
-            db.run('UPDATE settings SET activity_channel_id = ?, activity_support_role_id = ? WHERE guild_id = ?', [channel.id, role.id, guildId], async (err) => {
-                if (err) return interaction.reply({ content: 'Failed to update activity settings.', ephemeral: true });
-                await interaction.reply(`Activity submissions will now be sent to ${channel} and require approval from ${role}.`);
+            const threadChannel = interaction.options.getChannel('threadchannel');
+            const roleId = role ? role.id : null;
+            const threadChannelId = threadChannel ? threadChannel.id : null;
+            db.run('UPDATE settings SET cartel_channel_id = ?, cartel_role_id = ?, cartel_log_channel_id = ? WHERE guild_id = ?', [channel.id, roleId, threadChannelId, guildId], async (err) => {
+                if (err) return interaction.reply({ content: 'Failed to update cartel channel.', ephemeral: true });
+                await interaction.reply(`Cartel War notifications channel updated to ${channel}${role ? `, pinging ${role}` : ''}${threadChannel ? `, creating threads in ${threadChannel}` : ''}.`);
             });
         }
     },
