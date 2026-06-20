@@ -13,6 +13,9 @@ A powerful, multi-purpose Discord moderation bot built with Discord.js (v14) and
 - **Stream Monitor**: Automatic announcements for Twitch & YouTube live streams and YouTube video uploads.
 - **Automod & Welcome**: Word filtering, welcome messages, and auto-role assignment.
 - **Settings**: Guild-specific configuration using SQLite.
+- **Advanced Event Systems**: Automated scheduling and isolated roster tracking for Cartel Wars and Standard Events.
+- **Custom Events**: Schedule or instantly trigger custom one-off events on the fly with custom point values.
+- **Enforcer Loyalty System**: Advanced, admin-verified proof submission utilizing automated private threads, dynamic point tracking, and leaderboards.
 
 ## Commands
 
@@ -20,13 +23,16 @@ A powerful, multi-purpose Discord moderation bot built with Discord.js (v14) and
 - `/announcements`: Manage and view past announcements.
 - `/ban`: Ban a user from the server.
 - `/edit_announce`: Edit an existing announcement message.
+- `/event`: Create custom instant or scheduled events with custom point values.
 - `/help`: Display a list of available commands.
 - `/kick`: Kick a user from the server.
+- `/leaderboard`: View the top enforcers leaderboard.
 - `/loa`: Manage the Leave of Absence request system.
 - `/purge`: Delete a specified number of messages.
 - `/reactionrole`: Set up a reaction role message.
 - `/rolerequest`: Set up and manage the role request system.
-- `/settings`: Configure bot settings for the server (e.g., log channels).
+- `/settings`: Configure bot settings for the server (e.g., log channels, event channels).
+- `/submitproof`: Universal command to submit participation proofs directly into private admin event threads.
 - `/ticket`: Create a support ticket system.
 - `/timeout`: Temporarily timeout a user.
 - `/warn`: Issue a warning to a user.
