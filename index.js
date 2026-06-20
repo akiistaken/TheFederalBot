@@ -17,6 +17,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+client.pendingProofs = new Map();
 // Load Commands
 const commandsPath = path.join(__dirname, 'commands');
 if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
@@ -325,12 +326,18 @@ client.on('interactionCreate', async interaction => {
                     console.error('Failed to DM user about LOA status:', error);
                 }
             });
-        } else if (interaction.customId === 'cartel_submit_proof') {
-            const command = interaction.guild.commands.cache.find(c => c.name === 'cartelproof');
+        } else if (interaction.customId.startsWith('submit_proof_')) {
+            let threadId = null;
+            if (interaction.customId !== 'submit_proof_fallback') {
+                threadId = interaction.customId.replace('submit_proof_', '');
+                interaction.client.pendingProofs.set(interaction.user.id, threadId);
+            }
+            
+            const command = interaction.guild.commands.cache.find(c => c.name === 'submitproof');
             if (command) {
-                await interaction.reply({ content: `Please click here to submit your proof: </cartelproof:${command.id}>`, ephemeral: true });
+                await interaction.reply({ content: `Please click here to submit your proof: </submitproof:${command.id}>`, ephemeral: true });
             } else {
-                await interaction.reply({ content: `Please type \`/cartelproof\` to submit your proof!`, ephemeral: true });
+                await interaction.reply({ content: `Please type \`/submitproof\` to submit your proof!`, ephemeral: true });
             }
         } else if (interaction.customId === 'close_ticket') {
             db.get('SELECT ticket_support_role_id FROM settings WHERE guild_id = ?', [interaction.guild.id], async (err, row) => {

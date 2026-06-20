@@ -46,6 +46,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
             db.run(`ALTER TABLE settings ADD COLUMN cartel_log_channel_id TEXT`, () => {});
         });
 
+        // Create Custom Events Table
+        db.run(`CREATE TABLE IF NOT EXISTS custom_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            time TEXT NOT NULL
+        )`);
+
         // Create Streamers Table
         db.run(`CREATE TABLE IF NOT EXISTS streamers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
