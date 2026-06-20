@@ -18,6 +18,10 @@ module.exports = {
                 .addStringOption(option => 
                     option.setName('description')
                         .setDescription('Description of the event')
+                        .setRequired(false))
+                .addIntegerOption(option =>
+                    option.setName('points')
+                        .setDescription('Points awarded for verified proof (default 5)')
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
@@ -34,13 +38,22 @@ module.exports = {
                 .addStringOption(option => 
                     option.setName('description')
                         .setDescription('Description of the event')
+                        .setRequired(false))
+                .addIntegerOption(option =>
+                    option.setName('points')
+                        .setDescription('Points awarded for verified proof (default 5)')
                         .setRequired(false))),
 
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
-        const name = interaction.options.getString('name');
+        let name = interaction.options.getString('name');
         const description = interaction.options.getString('description') || `A custom event: ${name}`;
+        const pointsOpt = interaction.options.getInteger('points');
         const guildId = interaction.guild.id;
+
+        if (pointsOpt) {
+            name = `${name} [${pointsOpt} pts]`;
+        }
 
         if (subcommand === 'now') {
             await interaction.deferReply({ ephemeral: true });

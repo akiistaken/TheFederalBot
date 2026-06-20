@@ -55,6 +55,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
             time TEXT NOT NULL
         )`);
 
+        // Create Points Table
+        db.run(`CREATE TABLE IF NOT EXISTS points (
+            user_id TEXT NOT NULL,
+            guild_id TEXT NOT NULL,
+            points INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, guild_id)
+        )`);
+
         // Create Streamers Table
         db.run(`CREATE TABLE IF NOT EXISTS streamers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

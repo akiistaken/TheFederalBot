@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,7 +36,26 @@ module.exports = {
                 .setImage(proof.url)
                 .setTimestamp();
 
-            await thread.send({ embeds: [embed] });
+            let points = 5;
+            const tName = thread.name.toLowerCase();
+            const ptMatch = tName.match(/\[(\d+) pts\]/);
+            if (ptMatch) points = parseInt(ptMatch[1]);
+            else if (tName.includes('business war')) points = 15;
+            else if (tName.includes('crown')) points = 20;
+            else if (tName.includes('cartel')) points = 10;
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`accept_proof_${interaction.user.id}_${points}`)
+                    .setLabel('Accept')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`reject_proof_${interaction.user.id}`)
+                    .setLabel('Reject')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+            await thread.send({ embeds: [embed], components: [row] });
             
             // Clear the state so they must click the button again for their next proof
             interaction.client.pendingProofs.delete(interaction.user.id);

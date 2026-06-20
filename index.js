@@ -326,6 +326,49 @@ client.on('interactionCreate', async interaction => {
                     console.error('Failed to DM user about LOA status:', error);
                 }
             });
+        } else if (interaction.customId.startsWith('accept_proof_')) {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                return interaction.reply({ content: 'Only admins can review proofs.', ephemeral: true });
+            }
+            const parts = interaction.customId.split('_');
+            const targetUserId = parts[2];
+            const points = parseInt(parts[3]) || 5;
+
+            db.get(`SELECT points FROM points WHERE user_id = ? AND guild_id = ?`, [targetUserId, interaction.guild.id], (err, row) => {
+                const updateMsg = async (e) => {
+                    if (e) return interaction.reply({ content: 'Database error', ephemeral: true });
+                    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+                    embed.setColor('Green');
+                    embed.setFooter({ text: `✅ Accepted by ${interaction.user.tag} (+${points} points)` });
+                    await interaction.update({ embeds: [embed], components: [] });
+                };
+                if (row) {
+                    db.run(`UPDATE points SET points = points + ? WHERE user_id = ? AND guild_id = ?`, [points, targetUserId, interaction.guild.id], updateMsg);
+                } else {
+                    db.run(`INSERT INTO points (user_id, guild_id, points) VALUES (?, ?, ?)`, [targetUserId, interaction.guild.id, points], updateMsg);
+                }
+            });
+        } else if (interaction.customId.startsWith('reject_proof_')) {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                return interaction.reply({ content: 'Only admins can review proofs.', ephemeral: true });
+            }
+            const parts = interaction.customId.split('_');
+            const targetUserId = parts[2];
+
+            const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+            embed.setColor('Red');
+            embed.setFooter({ text: `❌ Rejected by ${interaction.user.tag}` });
+
+            await interaction.update({ embeds: [embed], components: [] });
+            
+            try {
+                const targetUser = await interaction.client.users.fetch(targetUserId);
+                if (targetUser) {
+                    await targetUser.send(`Your event proof in **${interaction.guild.name}** was rejected by an admin.`);
+                }
+            } catch (e) {
+                console.error('Failed to DM user about rejected proof:', e);
+            }
         } else if (interaction.customId.startsWith('submit_proof_')) {
             let threadId = null;
             if (interaction.customId !== 'submit_proof_fallback') {
