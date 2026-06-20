@@ -731,7 +731,7 @@ client.on('interactionCreate', async interaction => {
                     if (threadName && !channel.isThread()) {
                         await sentMessage.startThread({
                             name: threadName,
-                            autoArchiveDuration: 1440,
+                            autoArchiveDuration: 10080,
                             reason: 'Announcement Discussion Thread'
                         });
                     }

@@ -49,7 +49,7 @@ async function triggerEvent(client, event, specificGuildId = null, isNow = false
                             const threadName = `${event.name} ${nyDate} ${nyTimeString}`;
                             createdThread = await logChannel.threads.create({
                                 name: threadName,
-                                autoArchiveDuration: 1440,
+                                autoArchiveDuration: 10080,
                                 reason: 'Event proof thread'
                             }).catch(err => console.error(`Failed to create thread in log channel ${targetLogChannelId}:`, err));
                         }
@@ -109,6 +109,22 @@ async function triggerEvent(client, event, specificGuildId = null, isNow = false
                                                     .setStyle(ButtonStyle.Secondary)
                                                     .setDisabled(true)
                                             );
+                                        
+                                        if (createdThread) {
+                                            disabledRow.addComponents(
+                                                new ButtonBuilder()
+                                                    .setCustomId(`submit_proof_${createdThread.id}`)
+                                                    .setLabel('Submit Proof')
+                                                    .setStyle(ButtonStyle.Primary)
+                                            );
+                                        } else {
+                                            disabledRow.addComponents(
+                                                new ButtonBuilder()
+                                                    .setCustomId('submit_proof_fallback')
+                                                    .setLabel('Submit Proof')
+                                                    .setStyle(ButtonStyle.Primary)
+                                            );
+                                        }
                                         await fetchedMsg.edit({ components: [disabledRow] });
                                     }
                                 } catch (e) {
