@@ -73,13 +73,23 @@ module.exports = {
                 return interaction.reply({ content: 'Invalid time format. Please use HH:MM (e.g. 14:30) in UTC.', ephemeral: true });
             }
 
-            db.run('INSERT INTO custom_events (guild_id, name, description, time) VALUES (?, ?, ?, ?)', 
-                [guildId, name, description, time], 
-                async function(err) {
-                    if (err) return interaction.reply({ content: 'Failed to schedule the event in the database.', ephemeral: true });
-                    await interaction.reply({ content: `Successfully scheduled custom event **${name}** for ${time} UTC. It will announce ~13 minutes prior.` });
-                }
-            );
+            const [hours, minutes] = time.split(':').map(Number);
+            const eventTime = new Date();
+            eventTime.setUTCHours(hours, minutes, 0, 0);
+            
+            // If the time has already passed today, schedule for tomorrow
+            if (eventTime.getTime() <= Date.now()) {
+                eventTime.setUTCDate(eventTime.getUTCDate() + 1);
+            }
+
+            await interaction.deferReply();
+            try {
+                await triggerEvent(interaction.client, { name, description, timeAsDate: eventTime }, guildId, false);
+                await interaction.editReply({ content: `Successfully scheduled and announced custom event **${name}** for ${time} UTC. The roster will lock 2 minutes prior to the event.` });
+            } catch (err) {
+                console.error(err);
+                await interaction.editReply({ content: 'Failed to schedule the event.', ephemeral: true });
+            }
         }
     }
 };

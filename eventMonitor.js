@@ -12,7 +12,7 @@ async function triggerEvent(client, event, specificGuildId = null, isNow = false
         }
 
         const now = new Date();
-        const eventTime = isNow ? now : new Date(now.getTime() + 13 * 60 * 1000);
+        const eventTime = event.timeAsDate || (isNow ? now : new Date(now.getTime() + 13 * 60 * 1000));
         const nyTime = eventTime.toLocaleString("en-US", { timeZone: "America/New_York", hour12: true, hour: "numeric", minute: "2-digit" });
         const discordTime = `<t:${Math.floor(eventTime.getTime() / 1000)}:t>`;
 
@@ -92,6 +92,12 @@ async function triggerEvent(client, event, specificGuildId = null, isNow = false
                         const sentMessage = await channel.send(messageOptions).catch(err => console.error(`Failed to send event to channel ${targetChannelId}:`, err));
                         
                         if (sentMessage) {
+                            let lockDelay = 11 * 60 * 1000;
+                            if (event.timeAsDate) {
+                                lockDelay = event.timeAsDate.getTime() - (2 * 60 * 1000) - Date.now();
+                                if (lockDelay < 0) lockDelay = 0;
+                            }
+
                             setTimeout(async () => {
                                 try {
                                     const fetchedMsg = await channel.messages.fetch(sentMessage.id);
@@ -130,7 +136,7 @@ async function triggerEvent(client, event, specificGuildId = null, isNow = false
                                 } catch (e) {
                                     console.error(`Failed to lock roster for message ${sentMessage.id}:`, e);
                                 }
-                            }, 11 * 60 * 1000); // Lock after 11 minutes
+                            }, lockDelay); // Lock based on calculated delay
                         }
 
                     }
