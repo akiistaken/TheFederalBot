@@ -104,6 +104,10 @@ module.exports = {
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('disableevents')
+                .setDescription('Disable global event notifications for this server'))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('cartelchannel')
                 .setDescription('Set the channel for Cartel War notifications')
                 .addChannelOption(option => 
@@ -217,6 +221,11 @@ module.exports = {
             }
 
             await triggerEvent(interaction.client, testEventToFire);
+        } else if (subcommand === 'disableevents') {
+            db.run('UPDATE settings SET event_channel_id = NULL, event_role_id = NULL, event_log_channel_id = NULL WHERE guild_id = ?', [guildId], async (err) => {
+                if (err) return interaction.reply({ content: 'Failed to disable event notifications.', ephemeral: true });
+                await interaction.reply('Event notifications have been successfully disabled for this server.');
+            });
         } else if (subcommand === 'cartelchannel') {
             const channel = interaction.options.getChannel('channel');
             const role = interaction.options.getRole('role');
